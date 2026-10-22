@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Outer ambient circular glow -->
+    <path
+        android:pathData="M60,10 C87.61,10 110,32.39 110,60 C110,87.61 87.61,110 60,110 C32.39,110 10,87.61 10,60 C10,32.39 32.39,10 60,10 Z"
+        android:fillColor="#F0FDF4" />
+    <!-- Secondary soft shape -->
+    <path
+        android:pathData="M60,20 C82.09,20 100,37.91 100,60 C100,82.09 82.09,100 60,100 C37.91,100 20,82.09 20,60 C20,37.91 37.91,20 60,20 Z"
+        android:fillColor="#DCFCE7" />
+    <!-- Directory Card Base -->
+    <path
+        android:pathData="M38,40h44c3.3,0 6,2.7 6,6v42c0,3.3 -2.7,6 -6,6H38c-3.3,0 -6,-2.7 -6,-6V46c0,-3.3 2.7,-6 6,-6z"
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#CBD5E1"
+        android:strokeWidth="2" />
+    <!-- User Avatar Circle -->
+    <path
+        android:pathData="M60,48 C64.4,48 68,51.6 68,56 C68,60.4 64.4,64 60,64 C55.6,64 52,60.4 52,56 C52,51.6 55.6,48 60,48 Z"
+        android:fillColor="#DBEAFE"
+        android:strokeColor="#1D4ED8"
+        android:strokeWidth="2" />
+    <!-- User Body -->
+    <path
+        android:pathData="M48,76 C48,70 53,67 60,67 C67,67 72,70 72,76"
+        android:strokeColor="#1D4ED8"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+    <!-- Add Customer Action Badge -->
+    <path
+        android:pathData="M78,68 C83.5,68 88,72.5 88,78 C88,83.5 83.5,88 78,88 C72.5,88 68,83.5 68,78 C68,72.5 72.5,68 78,68 Z"
+        android:fillColor="#059669" />
+    <!-- Plus symbol inside badge -->
+    <path
+        android:pathData="M78,73 L78,83 M73,78 L83,78"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+</vector>

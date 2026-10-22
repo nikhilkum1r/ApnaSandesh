@@ -1,17 +1,27 @@
 package com.localreach.bizsms.feature.navigation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.localreach.bizsms.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.localreach.bizsms.core.ui.theme.StatusSuccess
 import com.localreach.bizsms.feature.campaigns.CampaignEditorScreen
 import com.localreach.bizsms.feature.campaigns.CampaignReviewScreen
 import com.localreach.bizsms.feature.campaigns.CampaignSendingScreen
@@ -31,9 +41,9 @@ import com.localreach.bizsms.feature.templates.TemplateLibraryScreen
 
 enum class NavDestination(val label: String) {
     DASHBOARD("Dashboard"),
+    CAMPAIGNS("Campaigns"),
     CUSTOMERS("Customers"),
     TEMPLATES("Templates"),
-    CAMPAIGNS("Campaigns"),
     HISTORY("History"),
     SETTINGS("Settings"),
     PROFILE("Profile"),
@@ -57,12 +67,12 @@ fun BizSmsAppShell(
     val groups by customersViewModel.groups.collectAsStateWithLifecycle()
     val suppressed by customersViewModel.suppressedList.collectAsStateWithLifecycle()
     val csvPreview by customersViewModel.csvPreview.collectAsStateWithLifecycle()
-    val uiMsg by customersViewModel.uiMessage.collectAsStateWithLifecycle()
 
     val templates by campaignsViewModel.templates.collectAsStateWithLifecycle()
     val activeRecipients by campaignsViewModel.activeRecipients.collectAsStateWithLifecycle()
     val currentIndex by campaignsViewModel.currentRecipientIndex.collectAsStateWithLifecycle()
     val campaignStatusMsg by campaignsViewModel.statusMessage.collectAsStateWithLifecycle()
+    val allCampaigns by dashboardViewModel.campaigns.collectAsStateWithLifecycle()
 
     var currentNav by remember { mutableStateOf(NavDestination.DASHBOARD) }
 
@@ -81,77 +91,142 @@ fun BizSmsAppShell(
 
     val isTopLevel = currentNav in setOf(
         NavDestination.DASHBOARD,
+        NavDestination.CAMPAIGNS,
         NavDestination.CUSTOMERS,
         NavDestination.TEMPLATES,
-        NavDestination.CAMPAIGNS,
-        NavDestination.HISTORY,
-        NavDestination.SETTINGS
+        NavDestination.HISTORY
     )
+
+    // Calculate smart back destination
+    val onNavigateBack: () -> Unit = {
+        currentNav = when (currentNav) {
+            NavDestination.PROFILE -> NavDestination.SETTINGS
+            NavDestination.IMPORT -> NavDestination.CUSTOMERS
+            NavDestination.GROUPS -> NavDestination.CUSTOMERS
+            NavDestination.CAMPAIGN_RECIPIENTS -> NavDestination.CAMPAIGNS
+            NavDestination.CAMPAIGN_REVIEW -> NavDestination.CAMPAIGN_RECIPIENTS
+            NavDestination.CAMPAIGN_SENDING -> NavDestination.HISTORY
+            NavDestination.SETTINGS -> NavDestination.DASHBOARD
+            else -> NavDestination.DASHBOARD
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
+                        val titleText = when (currentNav) {
+                            NavDestination.DASHBOARD -> profile?.businessName?.ifBlank { "LocalReach SMS" } ?: "LocalReach SMS"
+                            NavDestination.CAMPAIGNS -> "Compose Campaign"
+                            NavDestination.CUSTOMERS -> "Customer Directory"
+                            NavDestination.TEMPLATES -> "Message Templates"
+                            NavDestination.HISTORY -> "Campaign History"
+                            NavDestination.SETTINGS -> "Settings & Privacy"
+                            NavDestination.PROFILE -> "Business Profile"
+                            NavDestination.IMPORT -> "Import & Export"
+                            NavDestination.GROUPS -> "Customer Groups"
+                            NavDestination.CAMPAIGN_RECIPIENTS -> "Select Recipients"
+                            NavDestination.CAMPAIGN_REVIEW -> "Campaign Review"
+                            NavDestination.CAMPAIGN_SENDING -> "Dispatch Studio"
+                        }
+
                         Text(
-                            text = profile?.businessName?.ifBlank { "LocalReach SMS" } ?: "LocalReach SMS",
+                            text = titleText,
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = "Offline-First • Personal SIM • Zero Cloud Sync",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+                        if (isTopLevel && currentNav == NavDestination.DASHBOARD) {
+                            Text(
+                                text = "100% Offline • Private SIM • Zero Cloud Sync",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else if (!isTopLevel) {
+                            Text(
+                                text = profile?.businessName?.ifBlank { "LocalReach SMS" } ?: "LocalReach SMS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
                     if (!isTopLevel) {
-                        IconButton(onClick = { currentNav = NavDestination.DASHBOARD }) {
+                        IconButton(onClick = onNavigateBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 12.dp, end = 4.dp)
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_textflow_mark),
+                                contentDescription = "TextFlow Logo",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
-                }
+                },
+                actions = {
+                    if (currentNav != NavDestination.SETTINGS) {
+                        IconButton(onClick = { currentNav = NavDestination.SETTINGS }) {
+                            Icon(Icons.Default.Tune, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         },
         bottomBar = {
             if (isTopLevel) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp
+                ) {
                     NavigationBarItem(
                         selected = currentNav == NavDestination.DASHBOARD,
                         onClick = { currentNav = NavDestination.DASHBOARD },
                         icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
-                        label = { Text("Dashboard") }
-                    )
-                    NavigationBarItem(
-                        selected = currentNav == NavDestination.CUSTOMERS,
-                        onClick = { currentNav = NavDestination.CUSTOMERS },
-                        icon = { Icon(Icons.Default.People, contentDescription = "Customers") },
-                        label = { Text("Customers") }
-                    )
-                    NavigationBarItem(
-                        selected = currentNav == NavDestination.TEMPLATES,
-                        onClick = { currentNav = NavDestination.TEMPLATES },
-                        icon = { Icon(Icons.Default.Description, contentDescription = "Templates") },
-                        label = { Text("Templates") }
+                        label = { BottomNavLabel("Dashboard", currentNav == NavDestination.DASHBOARD) },
+                        alwaysShowLabel = true
                     )
                     NavigationBarItem(
                         selected = currentNav == NavDestination.CAMPAIGNS,
                         onClick = { currentNav = NavDestination.CAMPAIGNS },
                         icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Campaigns") },
-                        label = { Text("Campaigns") }
+                        label = { BottomNavLabel("Campaigns", currentNav == NavDestination.CAMPAIGNS) },
+                        alwaysShowLabel = true
+                    )
+                    NavigationBarItem(
+                        selected = currentNav == NavDestination.CUSTOMERS,
+                        onClick = { currentNav = NavDestination.CUSTOMERS },
+                        icon = { Icon(Icons.Default.People, contentDescription = "Customers") },
+                        label = { BottomNavLabel("Customers", currentNav == NavDestination.CUSTOMERS) },
+                        alwaysShowLabel = true
+                    )
+                    NavigationBarItem(
+                        selected = currentNav == NavDestination.TEMPLATES,
+                        onClick = { currentNav = NavDestination.TEMPLATES },
+                        icon = { Icon(Icons.Default.Description, contentDescription = "Templates") },
+                        label = { BottomNavLabel("Templates", currentNav == NavDestination.TEMPLATES) },
+                        alwaysShowLabel = true
                     )
                     NavigationBarItem(
                         selected = currentNav == NavDestination.HISTORY,
                         onClick = { currentNav = NavDestination.HISTORY },
                         icon = { Icon(Icons.Default.History, contentDescription = "History") },
-                        label = { Text("History") }
-                    )
-                    NavigationBarItem(
-                        selected = currentNav == NavDestination.SETTINGS,
-                        onClick = { currentNav = NavDestination.SETTINGS },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                        label = { Text("Settings") }
+                        label = { BottomNavLabel("History", currentNav == NavDestination.HISTORY) },
+                        alwaysShowLabel = true
                     )
                 }
             }
@@ -168,13 +243,15 @@ fun BizSmsAppShell(
                     customersCount = customers.size,
                     eligibleCount = customers.count { !it.isOptedOut && it.consentStatus == "GRANTED" },
                     suppressedCount = suppressed.size,
-                    draftsCount = 0,
-                    recentCampaignsCount = 0,
+                    draftsCount = allCampaigns.count { it.status == "DRAFT" },
+                    recentCampaignsCount = allCampaigns.size,
                     onNavigateToCustomers = { currentNav = NavDestination.CUSTOMERS },
                     onNavigateToImport = { currentNav = NavDestination.IMPORT },
                     onNavigateToCampaigns = { currentNav = NavDestination.CAMPAIGNS },
                     onNavigateToTemplates = { currentNav = NavDestination.TEMPLATES },
-                    onNavigateToSettings = { currentNav = NavDestination.SETTINGS }
+                    onNavigateToSettings = { currentNav = NavDestination.SETTINGS },
+                    onNavigateToGroups = { currentNav = NavDestination.GROUPS },
+                    onNavigateToProfile = { currentNav = NavDestination.PROFILE }
                 )
                 NavDestination.PROFILE -> BusinessProfileScreen(
                     profile = profile,
@@ -303,3 +380,24 @@ fun BizSmsAppShell(
         }
     }
 }
+
+@Composable
+private fun BottomNavLabel(
+    text: String,
+    isSelected: Boolean
+) {
+    Text(
+        text = text,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontSize = 10.sp,
+            letterSpacing = (-0.3).sp,
+            lineHeight = 12.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+        )
+    )
+}
+

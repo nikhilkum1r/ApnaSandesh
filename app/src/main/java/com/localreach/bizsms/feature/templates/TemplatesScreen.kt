@@ -1,17 +1,23 @@
 package com.localreach.bizsms.feature.templates
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -25,6 +31,9 @@ import com.localreach.bizsms.core.database.TemplateDao
 import com.localreach.bizsms.core.model.TemplateCategory
 import com.localreach.bizsms.domain.validation.SmsSegmentCalculator
 import com.localreach.bizsms.domain.validation.TemplateRenderer
+import com.localreach.bizsms.feature.common.EmptyStateView
+import com.localreach.bizsms.feature.common.SmsBubblePreview
+import com.localreach.bizsms.feature.common.TokenChipTray
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -98,20 +107,30 @@ fun TemplateLibraryScreen(
     val templates by viewModel.templates.collectAsStateWithLifecycle()
     val profile by viewModel.businessProfile.collectAsStateWithLifecycle()
 
+    var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryFilter by remember { mutableStateOf("ALL") }
     var editingTemplate by remember { mutableStateOf<MessageTemplateEntity?>(null) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<MessageTemplateEntity?>(null) }
 
-    val filteredTemplates = remember(templates, selectedCategoryFilter) {
-        if (selectedCategoryFilter == "ALL") templates
-        else templates.filter { it.category == selectedCategoryFilter }
+    val filteredTemplates = remember(templates, selectedCategoryFilter, searchQuery) {
+        templates.filter { t ->
+            val matchesCategory = selectedCategoryFilter == "ALL" || t.category == selectedCategoryFilter
+            val matchesSearch = searchQuery.isBlank() ||
+                t.title.contains(searchQuery, ignoreCase = true) ||
+                t.bodyTemplate.contains(searchQuery, ignoreCase = true)
+            matchesCategory && matchesSearch
+        }
     }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "New Template")
-            }
+            ExtendedFloatingActionButton(
+                onClick = { showCreateDialog = true },
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("New Template", fontWeight = FontWeight.SemiBold) },
+                shape = RoundedCornerShape(14.dp)
+            )
         }
     ) { padding ->
         Column(
@@ -121,41 +140,104 @@ fun TemplateLibraryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (onBack != null) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
-                Text("Message Templates", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-
-            // Category Filter Scrollable Row
-            ScrollableTabRow(
-                selectedTabIndex = TemplateCategory.entries.indexOfFirst { it.name == selectedCategoryFilter }.let { if (it >= 0) it + 1 else 0 },
-                edgePadding = 0.dp,
+            // Header Row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Tab(
-                    selected = selectedCategoryFilter == "ALL",
-                    onClick = { selectedCategoryFilter = "ALL" },
-                    text = { Text("All (${templates.size})") }
-                )
-                TemplateCategory.entries.forEach { cat ->
-                    Tab(
-                        selected = selectedCategoryFilter == cat.name,
-                        onClick = { selectedCategoryFilter = cat.name },
-                        text = { Text(cat.displayName) }
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                Column {
+                    Text(
+                        text = "Message Templates",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${templates.size} available • Personalized variables supported",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            if (filteredTemplates.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No templates in this category.", color = MaterialTheme.colorScheme.outline)
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search templates by name or content...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Category Filter Scrollable Tab Row
+            val allCategories = remember { listOf("ALL" to "All (${templates.size})") + TemplateCategory.entries.map { it.name to it.displayName } }
+            val selectedTabIndex = allCategories.indexOfFirst { it.first == selectedCategoryFilter }.coerceAtLeast(0)
+
+            ScrollableTabRow(
+                selectedTabIndex = selectedTabIndex,
+                edgePadding = 0.dp,
+                divider = {},
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                allCategories.forEachIndexed { index, (catKey, catLabel) ->
+                    val isSelected = selectedCategoryFilter == catKey
+                    Tab(
+                        selected = isSelected,
+                        onClick = { selectedCategoryFilter = catKey },
+                        text = {
+                            Text(
+                                text = catLabel,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    )
                 }
+            }
+
+            // Template Cards List
+            if (filteredTemplates.isEmpty()) {
+                val isFilterActive = searchQuery.isNotBlank() || selectedCategoryFilter != "ALL"
+                EmptyStateView(
+                    icon = Icons.Default.Description,
+                    title = if (isFilterActive) "No matching templates" else "No templates created yet",
+                    description = if (isFilterActive) {
+                        "Try a different search word or select another category."
+                    } else {
+                        "Create reusable templates for order confirmations, reminders, and seasonal greetings."
+                    },
+                    actionButtonLabel = if (isFilterActive) "Clear Filters" else "Create Template",
+                    onActionButtonClick = {
+                        if (isFilterActive) {
+                            searchQuery = ""
+                            selectedCategoryFilter = "ALL"
+                        } else {
+                            showCreateDialog = true
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
                     items(filteredTemplates, key = { it.id }) { template ->
                         TemplateCard(
                             template = template,
@@ -164,11 +246,14 @@ fun TemplateLibraryScreen(
                             templateRenderer = viewModel.templateRenderer,
                             onEdit = { editingTemplate = template },
                             onDuplicate = { viewModel.duplicateTemplate(template) },
-                            onDelete = { viewModel.deleteTemplate(template.id) },
+                            onDelete = { deleteTarget = template },
                             onUseInCampaign = if (onSelectTemplateForCampaign != null) {
                                 { onSelectTemplateForCampaign(template) }
                             } else null
                         )
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(72.dp)) // Space for FAB
                     }
                 }
             }
@@ -202,8 +287,49 @@ fun TemplateLibraryScreen(
             }
         )
     }
+
+    deleteTarget?.let { template ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            shape = RoundedCornerShape(16.dp),
+            icon = {
+                Icon(
+                    Icons.Default.DeleteOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Delete Custom Template?", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Are you sure you want to delete '${template.title}'? This action cannot be undone.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteTemplate(template.id)
+                        deleteTarget = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
+/**
+ * Human-designed Template Card with live SMS chat preview, encoding badges, and campaign action.
+ */
 @Composable
 fun TemplateCard(
     template: MessageTemplateEntity,
@@ -229,71 +355,140 @@ fun TemplateCard(
         communicationPhone = "+919876500000"
     )
 
-    val renderedPreview = remember(template.bodyTemplate, safeProfile) {
+    val renderedPreview = remember(template.bodyTemplate, safeProfile, template.isPromotional) {
         templateRenderer.render(
             rawTemplate = template.bodyTemplate,
             customer = sampleCustomer,
             profile = safeProfile,
-            appendSignature = true
+            appendSignature = true,
+            appendOptOutFooter = template.isPromotional
         )
     }
     val metrics = remember(renderedPreview) { segmentCalculator.calculate(renderedPreview) }
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Title & Badges
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(template.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                if (template.isSystemDefault) {
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("Default", style = MaterialTheme.typography.labelSmall) }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = template.title,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = template.category.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (template.isPromotional) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "Promo",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    if (template.isSystemDefault) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "Default",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
             }
 
-            Text(
-                text = "Template: ${template.bodyTemplate}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Live SMS Chat Bubble Preview
+            SmsBubblePreview(
+                messageText = renderedPreview,
+                encoding = if (metrics.isUcs2Unicode) "UCS-2" else "GSM-7",
+                charCount = metrics.charCount,
+                segmentCount = metrics.segmentCount,
+                recipientName = "Aarav Sharma"
             )
 
-            HorizontalDivider()
-
-            Text("Live Preview (for Aarav Sharma):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-            Text(renderedPreview, style = MaterialTheme.typography.bodyMedium)
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "${if (metrics.isUcs2Unicode) "UCS-2 (Unicode)" else "GSM-7"} • ${metrics.charCount} chars • ${metrics.segmentCount} segment(s)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
+            // Bottom Actions Toolbar
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (onUseInCampaign != null) {
-                    Button(onClick = onUseInCampaign) {
-                        Text("Use in Campaign")
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = onDuplicate, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = "Duplicate template",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit template",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    if (!template.isSystemDefault) {
+                        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = "Delete template",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
-                IconButton(onClick = onDuplicate) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Duplicate")
-                }
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit")
-                }
-                if (!template.isSystemDefault) {
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+
+                if (onUseInCampaign != null) {
+                    Button(
+                        onClick = onUseInCampaign,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Use in Campaign", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -301,6 +496,10 @@ fun TemplateCard(
     }
 }
 
+/**
+ * Template Editor Dialog with live placeholder tray and SMS encoding metrics.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TemplateEditorDialog(
     template: MessageTemplateEntity?,
@@ -329,7 +528,7 @@ fun TemplateEditorDialog(
         communicationPhone = "+919876500000"
     )
 
-    val livePreview = remember(body, safeProfile) {
+    val livePreview = remember(body, safeProfile, isPromotional) {
         templateRenderer.render(
             rawTemplate = body,
             customer = sampleCustomer,
@@ -340,93 +539,147 @@ fun TemplateEditorDialog(
     }
     val metrics = remember(livePreview) { segmentCalculator.calculate(livePreview) }
 
+    val canSave = title.trim().isNotBlank() && body.trim().isNotBlank()
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (template == null) "Create Message Template" else "Edit Template") },
+        shape = RoundedCornerShape(16.dp),
+        title = {
+            Text(
+                text = if (template == null) "Create Message Template" else "Edit Template",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Template Title *") },
+                    placeholder = { Text("e.g. Order Ready Pickup") },
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Category", style = MaterialTheme.typography.labelMedium)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = !isPromotional,
-                        onClick = { isPromotional = false },
-                        label = { Text("Transactional") }
+                // Category Selection
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Business Category",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
                     )
-                    FilterChip(
-                        selected = isPromotional,
-                        onClick = { isPromotional = true },
-                        label = { Text("Promotional") }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    var categoryExpanded by remember { mutableStateOf(false) }
+
+                    ExposedDropdownMenuBox(
+                        expanded = categoryExpanded,
+                        onExpandedChange = { categoryExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = TemplateCategory.entries.firstOrNull { it.name == selectedCategory }?.displayName ?: selectedCategory,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = categoryExpanded,
+                            onDismissRequest = { categoryExpanded = false }
+                        ) {
+                            TemplateCategory.entries.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat.displayName) },
+                                    onClick = {
+                                        selectedCategory = cat.name
+                                        if (cat.isPromotional) {
+                                            isPromotional = true
+                                        }
+                                        categoryExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Promotional Type Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Promotional Message (+ STOP footer)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Appends opt-out instructions required for marketing broadcasts.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isPromotional,
+                        onCheckedChange = { isPromotional = it }
                     )
                 }
 
+                // Message Body
                 OutlinedTextField(
                     value = body,
                     onValueChange = { body = it },
                     label = { Text("Message Body Template *") },
+                    placeholder = { Text("Hello {{customer_name}}, your order is ready...") },
+                    shape = RoundedCornerShape(10.dp),
                     minLines = 4,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Click token to insert:", style = MaterialTheme.typography.labelSmall)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    SuggestionChip(
-                        onClick = { body += "{{customer_name}}" },
-                        label = { Text("Name", style = MaterialTheme.typography.labelSmall) }
-                    )
-                    SuggestionChip(
-                        onClick = { body += "{{business_name}}" },
-                        label = { Text("Shop", style = MaterialTheme.typography.labelSmall) }
-                    )
-                    SuggestionChip(
-                        onClick = { body += "{{business_phone}}" },
-                        label = { Text("Phone", style = MaterialTheme.typography.labelSmall) }
-                    )
-                    SuggestionChip(
-                        onClick = { body += "{{signature}}" },
-                        label = { Text("Signature", style = MaterialTheme.typography.labelSmall) }
-                    )
-                }
-
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Live Preview:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                        Text(livePreview, style = MaterialTheme.typography.bodySmall)
-                        HorizontalDivider()
-                        Text(
-                            "Encoding: ${if (metrics.isUcs2Unicode) "UCS-2 (Unicode)" else "GSM-7"} • Chars: ${metrics.charCount} • Est. Segments: ${metrics.segmentCount}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                // Token insertion tray
+                TokenChipTray(
+                    onTokenSelected = { token ->
+                        body = if (body.endsWith(" ") || body.isEmpty()) "$body$token " else "$body $token "
                     }
-                }
+                )
+
+                // Live Preview Bubble
+                SmsBubblePreview(
+                    messageText = livePreview,
+                    encoding = if (metrics.isUcs2Unicode) "UCS-2 (Unicode)" else "GSM-7",
+                    charCount = metrics.charCount,
+                    segmentCount = metrics.segmentCount
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank() && body.isNotBlank()) {
+                    if (canSave) {
                         onSave(title, selectedCategory, body, isPromotional)
                     }
-                }
+                },
+                enabled = canSave,
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Text("Save Template")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
         }
     )
 }

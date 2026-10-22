@@ -1,30 +1,50 @@
 package com.localreach.bizsms.feature.campaigns
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.localreach.bizsms.core.database.BusinessProfileEntity
 import com.localreach.bizsms.core.database.CampaignRecipientEntity
 import com.localreach.bizsms.core.database.CustomerEntity
 import com.localreach.bizsms.core.database.CustomerGroupEntity
 import com.localreach.bizsms.core.database.MessageTemplateEntity
+import com.localreach.bizsms.core.ui.theme.*
 import com.localreach.bizsms.domain.validation.SmsSegmentCalculator
 import com.localreach.bizsms.domain.validation.TemplateRenderer
 import com.localreach.bizsms.domain.validation.TraiDltComplianceAdvisor
+import com.localreach.bizsms.feature.common.CustomerAvatar
+import com.localreach.bizsms.feature.common.EmptyStateView
+import com.localreach.bizsms.feature.common.SmsBubblePreview
 import com.localreach.bizsms.feature.common.StatusBadge
+import com.localreach.bizsms.feature.common.StepWizardBar
+import com.localreach.bizsms.feature.common.TokenChipTray
 
 /**
- * Screen 8: Campaign Editor Screen
+ * Screen 8: Campaign Message Editor Screen (Step 1)
  */
 @Composable
 fun CampaignEditorScreen(
@@ -34,7 +54,7 @@ fun CampaignEditorScreen(
     templateRenderer: TemplateRenderer,
     onContinueToRecipients: (String, String?, String, Boolean, Boolean) -> Unit
 ) {
-    var campaignTitle by remember { mutableStateOf("Service Follow-Up") }
+    var campaignTitle by remember { mutableStateOf("Customer Service Broadcast") }
     var selectedTemplate by remember { mutableStateOf<MessageTemplateEntity?>(templates.firstOrNull()) }
     var messageBody by remember {
         mutableStateOf(
@@ -70,6 +90,8 @@ fun CampaignEditorScreen(
     }
     val metrics = remember(livePreview) { segmentCalculator.calculate(livePreview) }
 
+    val canProceed = campaignTitle.trim().isNotBlank() && messageBody.trim().isNotBlank()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -77,83 +99,157 @@ fun CampaignEditorScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Campaign Message Editor", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        // Wizard Progress Indicator
+        StepWizardBar(
+            steps = listOf("1. Compose", "2. Recipients", "3. Review"),
+            currentStepIndex = 0
+        )
 
+        Text(
+            text = "Compose Campaign Message",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+
+        // Campaign Name
         OutlinedTextField(
             value = campaignTitle,
             onValueChange = { campaignTitle = it },
-            label = { Text("Campaign Name / Title *") },
+            label = { Text("Campaign Name / Purpose *") },
+            placeholder = { Text("e.g. Festival Offer / Weekend Service Notice") },
+            shape = RoundedCornerShape(10.dp),
+            singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
 
-        Text("Select Template (or customize body below):", style = MaterialTheme.typography.labelMedium)
-        ScrollableTabRow(
-            selectedTabIndex = templates.indexOf(selectedTemplate).coerceAtLeast(0),
-            edgePadding = 0.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            templates.forEach { tpl ->
-                Tab(
-                    selected = selectedTemplate?.id == tpl.id,
-                    onClick = {
-                        selectedTemplate = tpl
-                        messageBody = tpl.bodyTemplate
-                        isPromotional = tpl.isPromotional
-                    },
-                    text = { Text(tpl.title) }
+        // Template Selection Scrollable Row
+        if (templates.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Load from Pre-made Template:",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    templates.forEach { tpl ->
+                        val isSelected = selectedTemplate?.id == tpl.id
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                selectedTemplate = tpl
+                                messageBody = tpl.bodyTemplate
+                                isPromotional = tpl.isPromotional
+                            },
+                            label = { Text(tpl.title, style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+                }
             }
         }
 
+        // Message Body Editor
         OutlinedTextField(
             value = messageBody,
             onValueChange = { messageBody = it },
             label = { Text("Message Body Template *") },
+            placeholder = { Text("Enter message text with variables like {{customer_name}}...") },
+            shape = RoundedCornerShape(10.dp),
             minLines = 4,
             modifier = Modifier.fillMaxWidth()
         )
 
-        Text("Insert Safe Placeholder Token:", style = MaterialTheme.typography.labelSmall)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        // Variable Token Insertion Tray
+        TokenChipTray(
+            onTokenSelected = { token ->
+                messageBody = if (messageBody.endsWith(" ") || messageBody.isEmpty()) "$messageBody$token " else "$messageBody $token "
+            }
+        )
+
+        // Toggles Card
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            SuggestionChip(onClick = { messageBody += "{{customer_name}}" }, label = { Text("Customer Name") })
-            SuggestionChip(onClick = { messageBody += "{{business_name}}" }, label = { Text("Business") })
-            SuggestionChip(onClick = { messageBody += "{{business_phone}}" }, label = { Text("Phone") })
-            SuggestionChip(onClick = { messageBody += "{{signature}}" }, label = { Text("Signature") })
-        }
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Append Business Signature",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Automatically appends '${safeProfile.defaultMessageSignature}'",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = appendSignature,
+                        onCheckedChange = { appendSignature = it }
+                    )
+                }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FilterChip(
-                selected = appendSignature,
-                onClick = { appendSignature = !appendSignature },
-                label = { Text("Append Signature") }
-            )
-            FilterChip(
-                selected = isPromotional,
-                onClick = { isPromotional = !isPromotional },
-                label = { Text("Promotional (+ STOP Footer)") }
-            )
-        }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Live Personalized Preview:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                Text(livePreview, style = MaterialTheme.typography.bodyMedium)
-                HorizontalDivider()
-                Text(
-                    "Encoding: ${if (metrics.isUcs2Unicode) "UCS-2 (Unicode)" else "GSM-7 (Standard)"} • Length: ${metrics.charCount} chars • Est. Segments: ${metrics.segmentCount} per SMS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Promotional Broadcast (+ STOP opt-out)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Appends opt-out instruction and filters only explicit Opted-In customers.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isPromotional,
+                        onCheckedChange = { isPromotional = it }
+                    )
+                }
             }
         }
 
+        // Live Personalized SMS Chat Preview
+        SmsBubblePreview(
+            messageText = livePreview,
+            encoding = if (metrics.isUcs2Unicode) "UCS-2 (Unicode)" else "GSM-7",
+            charCount = metrics.charCount,
+            segmentCount = metrics.segmentCount,
+            recipientName = "Aarav Sharma"
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Next Action Button
         Button(
             onClick = {
-                if (campaignTitle.isNotBlank() && messageBody.isNotBlank()) {
+                if (canProceed) {
                     onContinueToRecipients(
                         campaignTitle,
                         selectedTemplate?.id,
@@ -163,17 +259,27 @@ fun CampaignEditorScreen(
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(48.dp)
+            enabled = canProceed,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
         ) {
-            Text("Next: Select Recipients")
+            Text(
+                text = "Next: Select Recipients",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 /**
- * Screen 9: Recipient Selection Screen
+ * Screen 9: Recipient Selection Screen (Step 2)
  */
 @Composable
 fun RecipientSelectionScreen(
@@ -184,7 +290,8 @@ fun RecipientSelectionScreen(
     onBack: () -> Unit
 ) {
     var selectAllEligible by remember { mutableStateOf(true) }
-    var selectedGroup by remember { mutableStateOf<String?>("ALL") }
+    var selectedGroupFilter by remember { mutableStateOf<String?>("ALL") }
+    var searchQuery by remember { mutableStateOf("") }
     val selectedCustomerIds = remember { mutableStateListOf<String>() }
 
     val eligibleCustomers = remember(customers, isPromotional) {
@@ -201,67 +308,191 @@ fun RecipientSelectionScreen(
         }
     }
 
+    // Filter displayed list by search query
+    val displayedCustomers = remember(customers, searchQuery) {
+        if (searchQuery.isBlank()) customers
+        else customers.filter {
+            it.fullName.contains(searchQuery, ignoreCase = true) ||
+                it.normalizedPhoneE164.contains(searchQuery) ||
+                it.tagsCsv.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    val selectedCount = if (selectAllEligible) eligibleCustomers.size else selectedCustomerIds.size
+    val canProceed = selectedCount > 0
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
-            Text("Select Recipients", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        // Wizard Progress Indicator
+        StepWizardBar(
+            steps = listOf("1. Compose", "2. Recipients", "3. Review"),
+            currentStepIndex = 1
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Column {
+                Text(
+                    text = "Select Campaign Recipients",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "$selectedCount recipients chosen for dispatch",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    "Total Eligible Recipients: ${eligibleCustomers.size} • Excluded / Suppressed: ${excludedCustomers.size}",
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium
+        // Summary Card
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Eligible", style = MaterialTheme.typography.labelSmall, color = StatusSuccess)
+                    Text("${eligibleCustomers.size}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = StatusSuccess)
+                }
+                Box(
+                    modifier = Modifier
+                        .height(30.dp)
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
                 )
-                if (isPromotional) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Suppressed / Ineligible", style = MaterialTheme.typography.labelSmall, color = StatusError)
+                    Text("${excludedCustomers.size}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = StatusError)
+                }
+                Box(
+                    modifier = Modifier
+                        .height(30.dp)
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Selected", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text("$selectedCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+
+        // Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Filter recipients by name or phone...") },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    }
+                }
+            },
+            shape = RoundedCornerShape(10.dp),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Select All Eligible Master Control
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    val newCheck = !selectAllEligible
+                    selectAllEligible = newCheck
+                    if (newCheck) {
+                        selectedCustomerIds.clear()
+                    } else {
+                        selectedCustomerIds.clear()
+                        selectedCustomerIds.addAll(eligibleCustomers.map { it.id })
+                    }
+                }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = selectAllEligible,
+                    onCheckedChange = { checked ->
+                        selectAllEligible = checked
+                        if (checked) {
+                            selectedCustomerIds.clear()
+                        } else {
+                            selectedCustomerIds.clear()
+                            selectedCustomerIds.addAll(eligibleCustomers.map { it.id })
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Promotional campaign: Only customers with explicit OPTED-IN consent are eligible.",
+                        text = "Select All ${eligibleCustomers.size} Eligible Customers",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Automatically excludes opted-out and invalid phone numbers",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = selectAllEligible,
-                onCheckedChange = {
-                    selectAllEligible = it
-                    if (it) {
-                        selectedCustomerIds.clear()
-                    } else {
-                        selectedCustomerIds.addAll(eligibleCustomers.map { c -> c.id })
-                    }
-                }
-            )
-            Text("Select All ${eligibleCustomers.size} Eligible Customers", fontWeight = FontWeight.Medium)
-        }
-
-        Text("Recipient Directory (${if (selectAllEligible) eligibleCustomers.size else selectedCustomerIds.size} Selected)", fontWeight = FontWeight.SemiBold)
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
-            items(customers, key = { it.id }) { customer ->
+        // Recipient Selection List
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            items(displayedCustomers, key = { it.id }) { customer ->
                 val isEligible = customer in eligibleCustomers
+                val isChecked = selectAllEligible || customer.id in selectedCustomerIds
+
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isEligible) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    )
+                        containerColor = if (isEligible) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isChecked && isEligible) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (isEligible) {
                             Checkbox(
-                                checked = selectAllEligible || customer.id in selectedCustomerIds,
+                                checked = isChecked,
                                 enabled = !selectAllEligible,
                                 onCheckedChange = { checked ->
                                     if (checked) selectedCustomerIds.add(customer.id)
@@ -269,15 +500,51 @@ fun RecipientSelectionScreen(
                                 }
                             )
                         } else {
-                            Icon(Icons.Default.Block, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(StatusError.copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Block,
+                                    contentDescription = "Ineligible",
+                                    tint = StatusError,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        CustomerAvatar(name = customer.fullName, size = 36)
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(customer.fullName, fontWeight = FontWeight.Bold)
-                            Text(customer.normalizedPhoneE164, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = customer.fullName,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = customer.normalizedPhoneE164,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+
                         if (!isEligible) {
-                            StatusBadge(status = if (customer.isOptedOut) "OPTED_OUT" else if (!customer.isPhoneValid) "INVALID" else "NOT OPTED IN")
+                            StatusBadge(
+                                status = when {
+                                    customer.isOptedOut -> "OPTED_OUT"
+                                    !customer.isPhoneValid -> "INVALID"
+                                    isPromotional && customer.consentStatus != "GRANTED" -> "NOT OPTED IN"
+                                    else -> "SUPPRESSED"
+                                }
+                            )
                         } else {
                             StatusBadge(status = customer.consentStatus)
                         }
@@ -286,23 +553,31 @@ fun RecipientSelectionScreen(
             }
         }
 
+        // Continue Button
         Button(
             onClick = {
                 val targets = if (selectAllEligible) null else selectedCustomerIds.toSet()
                 onContinueToReview(targets)
             },
-            enabled = (selectAllEligible && eligibleCustomers.isNotEmpty()) || (!selectAllEligible && selectedCustomerIds.isNotEmpty()),
-            modifier = Modifier.fillMaxWidth().height(48.dp)
+            enabled = canProceed,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
         ) {
-            Text("Review Campaign (${if (selectAllEligible) eligibleCustomers.size else selectedCustomerIds.size} Recipients)")
+            Text(
+                text = "Review Campaign ($selectedCount Recipients)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
         }
     }
 }
 
 /**
- * Screen 10: Campaign Review & Confirmation Screen
+ * Screen 10: Campaign Review & Confirmation Screen (Step 3)
  */
 @Composable
 fun CampaignReviewScreen(
@@ -333,6 +608,8 @@ fun CampaignReviewScreen(
         )
     }
 
+    val totalSegments = remember(recipients) { recipients.sumOf { it.estimatedSegments } }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -340,47 +617,203 @@ fun CampaignReviewScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
-            Text("Campaign Review", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
+        // Wizard Progress Indicator
+        StepWizardBar(
+            steps = listOf("1. Compose", "2. Recipients", "3. Review"),
+            currentStepIndex = 2
+        )
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Campaign: $campaignTitle", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                Text("Exact Recipient Count: ${recipients.size} customer(s)")
-                Text("Total Estimated SMS Segments: ${recipients.sumOf { it.estimatedSegments }}")
-                Text("Transport Mode: Android SMS Composer (Default)")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Column {
+                Text(
+                    text = "Pre-Flight Campaign Review",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Final verification before initiating dispatch session",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
+        // Campaign Overview Card
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Campaign Summary",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Campaign Name", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(campaignTitle, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Recipient Count", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${recipients.size} customer(s)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Est. Total SMS Segments", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("$totalSegments segments", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = BrandAmberTertiaryLight)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Dispatch Transport Mode", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("System SMS Composer", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // Regulatory / Telecom Advisory Card
         if (advisory.requiresWarningBanner) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(advisory.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = BrandAmberTertiaryLight.copy(alpha = 0.08f)
+                ),
+                border = BorderStroke(1.dp, BrandAmberTertiaryLight.copy(alpha = 0.3f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.WarningAmber,
+                            contentDescription = null,
+                            tint = BrandAmberTertiaryLight,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = advisory.title,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = BrandAmberTertiaryLight
+                        )
+                    }
                     advisory.guidanceBullets.forEach { bullet ->
-                        Text("• $bullet", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "• $bullet",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
         }
 
-        Text("Sample Personalized Previews (First 3 Recipients):", fontWeight = FontWeight.Bold)
+        // Sample Personalized Messages Preview
+        Text(
+            text = "Personalized Preview Samples (First ${minOf(3, recipients.size)} recipients)",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium
+        )
+
         recipients.take(3).forEachIndexed { index, r ->
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Recipient #${index + 1}: ${r.recipientNameSnapshot} (${r.normalizedPhoneSnapshot})", fontWeight = FontWeight.Bold)
-                    Text(r.resolvedMessageBody, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        "${r.encodingType} • ${r.estimatedSegments} segment(s)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "#${index + 1}: ${r.recipientNameSnapshot}",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = r.normalizedPhoneSnapshot,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = r.resolvedMessageBody,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${r.characterCount} chars • ${r.estimatedSegments} segment(s)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = r.encodingType,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
+        // Confirmation Checkbox Box
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { confirmedCheckbox = !confirmedCheckbox }
+        ) {
             Row(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -391,26 +824,37 @@ fun CampaignReviewScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "I confirm that all recipients have an existing relationship with my business and that I will observe carrier quotas and TRAI communication guidelines.",
-                    style = MaterialTheme.typography.bodySmall
+                    text = "I confirm that all recipients have an existing relationship with my business, and I will respect personal SIM daily quotas and telecom guidelines.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
 
+        // Confirm & Start Dispatch Button
         Button(
             onClick = onConfirmAndStartSending,
             enabled = confirmedCheckbox && recipients.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth().height(50.dp)
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
         ) {
-            Icon(Icons.Default.Send, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Start Sending Session (${recipients.size} Recipients)")
+            Text(
+                text = "Start Sending Session (${recipients.size} Recipients)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 /**
- * Screen 11: Campaign Sending & Handoff Coordinator Screen
+ * Screen 11: Campaign Sending & Handoff Coordinator Screen (Step 4)
  */
 @Composable
 fun CampaignSendingScreen(
@@ -426,111 +870,316 @@ fun CampaignSendingScreen(
     onDone: () -> Unit
 ) {
     val currentRecipient = recipients.getOrNull(currentIndex)
-    val sentCount = recipients.count { it.state == "SENT" || it.state == "DELIVERED" }
-    val failedCount = recipients.count { it.state == "FAILED" }
-    val cancelledCount = recipients.count { it.state == "CANCELLED" }
+    val sentCount = remember(recipients) { recipients.count { it.state == "SENT" || it.state == "DELIVERED" } }
+    val failedCount = remember(recipients) { recipients.count { it.state == "FAILED" } }
+    val cancelledCount = remember(recipients) { recipients.count { it.state == "CANCELLED" } }
     val isFinished = currentIndex >= recipients.size || currentRecipient == null
+
+    var showCancelDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Campaign Sending Session", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Campaign: $campaignTitle", style = MaterialTheme.typography.titleMedium)
+        // Session Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Dispatch Studio",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = campaignTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-        LinearProgressIndicator(
-            progress = { if (recipients.isNotEmpty()) (currentIndex.toFloat() / recipients.size) else 1f },
-            modifier = Modifier.fillMaxWidth().height(8.dp)
-        )
-
-        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text("Progress: ${currentIndex.coerceAtMost(recipients.size)} of ${recipients.size} recipients", style = MaterialTheme.typography.bodyMedium)
-            Text("Sent: $sentCount | Skipped: $cancelledCount | Failed: $failedCount", style = MaterialTheme.typography.labelSmall)
+            Surface(
+                color = if (isFinished) StatusSuccessContainer else BrandBluePrimaryContainerLight,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = if (isFinished) "Completed" else "In Progress",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isFinished) StatusSuccess else BrandBluePrimaryLight,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         }
 
+        // Progress Section
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Recipient ${currentIndex.coerceAtMost(recipients.size)} of ${recipients.size}",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    val percent = if (recipients.isNotEmpty()) (currentIndex.toFloat() / recipients.size * 100).toInt() else 100
+                    Text(
+                        text = "$percent%",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                LinearProgressIndicator(
+                    progress = { if (recipients.isNotEmpty()) (currentIndex.toFloat() / recipients.size).coerceIn(0f, 1f) else 1f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    Text("Sent: $sentCount", style = MaterialTheme.typography.labelSmall, color = StatusSuccess, fontWeight = FontWeight.SemiBold)
+                    Text("Skipped: $cancelledCount", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Failed: $failedCount", style = MaterialTheme.typography.labelSmall, color = if (failedCount > 0) StatusError else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // Status Feedback Banner
         statusMessage?.let { msg ->
             Card(
+                shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(msg, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = onDismissStatus) { Text("OK") }
                 }
             }
         }
 
+        // Main Stage: Current Recipient or Finished View
         if (isFinished) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.5.dp, StatusSuccess),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(54.dp))
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("Campaign Completed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("All recipients have been processed.", style = MaterialTheme.typography.bodyMedium)
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .background(StatusSuccess.copy(alpha = 0.12f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = StatusSuccess,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
-                        Text("View Campaign History")
+                    Text(
+                        text = "Campaign Session Finished!",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "All $sentCount message(s) have been processed. Detailed audit outcomes are recorded in History.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = onDone,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text("View Campaign History", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         } else {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Current Recipient (${currentIndex + 1} of ${recipients.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("Name: ${currentRecipient.recipientNameSnapshot}", fontWeight = FontWeight.SemiBold)
-                    Text("Phone: ${currentRecipient.normalizedPhoneSnapshot}")
+            // Current Recipient Card
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CustomerAvatar(name = currentRecipient.recipientNameSnapshot, size = 48)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = currentRecipient.recipientNameSnapshot,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = currentRecipient.normalizedPhoneSnapshot,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        StatusBadge(status = currentRecipient.state)
+                    }
 
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Message Body Preview:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                    // Message Content Box
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = "Personalized Message:",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(currentRecipient.resolvedMessageBody, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = currentRecipient.resolvedMessageBody,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp
+                            )
                         }
                     }
 
-                    Text("Status: ${currentRecipient.state}", style = MaterialTheme.typography.labelSmall)
-
+                    // Primary Action: Open SMS Composer
                     Button(
                         onClick = { onDispatchRecipient(currentRecipient) },
-                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
                     ) {
-                        Icon(Icons.Default.OpenInNew, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Open in Messaging App")
+                        Text(
+                            text = "Open in SMS Messaging App",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    // Step advancement actions
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         FilledTonalButton(
                             onClick = { onMarkSent(currentRecipient) },
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
                         ) {
-                            Text("Mark Sent & Next")
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Mark Sent & Next", fontWeight = FontWeight.SemiBold)
                         }
+
                         OutlinedButton(
                             onClick = { onSkipRecipient(currentRecipient) },
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
                         ) {
-                            Text("Skip")
+                            Text("Skip", fontWeight = FontWeight.Medium)
                         }
                     }
                 }
             }
 
+            // Pause / Cancel Campaign
             OutlinedButton(
-                onClick = onCancelCampaign,
+                onClick = { showCancelDialog = true },
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Cancel, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Cancel Remaining Campaign Queue")
+                Icon(Icons.Default.StopCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Cancel Remaining Queue")
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("Cancel Remaining Queue?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Are you sure you want to cancel the rest of this campaign? Already sent messages will remain logged, and unsent recipients will be marked as cancelled.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCancelDialog = false
+                        onCancelCampaign()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Yes, Cancel Queue")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("Continue Campaign")
+                }
+            }
+        )
     }
 }

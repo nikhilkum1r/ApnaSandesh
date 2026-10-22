@@ -3,8 +3,12 @@ package com.localreach.bizsms.feature.settings
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -23,6 +28,7 @@ import com.localreach.bizsms.core.database.AppPreferencesDataStore
 import com.localreach.bizsms.core.database.BizSmsDatabase
 import com.localreach.bizsms.core.database.ProfileAndSettingsDao
 import com.localreach.bizsms.core.model.SimSubscriptionInfo
+import com.localreach.bizsms.core.ui.theme.*
 import com.localreach.bizsms.domain.transport.TransportPolicyGate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +48,9 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     val appSettings = profileDao.observeAppSettings()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val businessProfile = profileDao.observeBusinessProfile()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _activeSimSubscriptions = MutableStateFlow<List<SimSubscriptionInfo>>(emptyList())
@@ -119,6 +128,7 @@ fun SettingsScreen(
     onNavigateToProfile: () -> Unit
 ) {
     val settings by viewModel.appSettings.collectAsStateWithLifecycle()
+    val profile by viewModel.businessProfile.collectAsStateWithLifecycle()
     val activeSims by viewModel.activeSimSubscriptions.collectAsStateWithLifecycle()
 
     var showDirectSimDisclosureDialog by remember { mutableStateOf(false) }
@@ -129,7 +139,7 @@ fun SettingsScreen(
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
+    ) {
         viewModel.refreshSims()
     }
 
@@ -140,79 +150,198 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Settings & Privacy", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Column {
+            Text(
+                text = "Settings & Privacy",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Configure transport, SIM preferences, compliance, and device storage",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
-        // Profile Shortcut Card
-        Card(modifier = Modifier.fillMaxWidth()) {
+        // Section 1: Business Profile Shortcut
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Row(
-                modifier = Modifier.padding(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Business Profile & Signature", fontWeight = FontWeight.Bold)
-                    Text("Edit business name, contact number, and signature", style = MaterialTheme.typography.bodySmall)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Storefront,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-                FilledTonalButton(onClick = onNavigateToProfile) {
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = profile?.businessName?.ifBlank { "Business Profile" } ?: "Business Profile",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "${profile?.communicationPhone ?: "No phone"} • ${profile?.ownerDisplayName ?: "Owner"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                FilledTonalButton(
+                    onClick = onNavigateToProfile,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
                     Text("Edit")
                 }
             }
         }
 
-        // Transport Mode & Policy Gate
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("SMS Transport Engine", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        // Section 2: SMS Transport Engine
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text(
-                    "Choose how messages are dispatched from this device.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "SMS Dispatch Engine",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = settings?.preferredTransport == "COMPOSER_HANDOFF",
-                        onClick = { viewModel.updateTransportMode("COMPOSER_HANDOFF") }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text("Android SMS Composer (Default & Google Play Baseline)", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Opens your default messaging app pre-filled. Requires zero sensitive permissions. You review and confirm every message.",
-                            style = MaterialTheme.typography.labelSmall
+                // Option 1: Native SMS Composer
+                Surface(
+                    color = if (settings?.preferredTransport != "DIRECT_SIM") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, if (settings?.preferredTransport != "DIRECT_SIM") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        RadioButton(
+                            selected = settings?.preferredTransport != "DIRECT_SIM",
+                            onClick = { viewModel.updateTransportMode("COMPOSER_HANDOFF") }
                         )
-                    }
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = settings?.preferredTransport == "DIRECT_SIM",
-                        onClick = {
-                            if (settings?.directSimPolicyAcknowledged == true) {
-                                viewModel.updateTransportMode("DIRECT_SIM")
-                            } else {
-                                showDirectSimDisclosureDialog = true
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Android SMS Composer",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = StatusSuccessContainer,
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "Recommended",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = StatusSuccess,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Pre-fills your phone's SMS app. Zero sensitive permissions required. You visually inspect and confirm every message before dispatch.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text("Direct SIM Radio (Gated Enterprise / Sideload)", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Sends directly via SmsManager using your SIM card plan. Requires explicit policy acknowledgment and SEND_SMS permission.",
-                            style = MaterialTheme.typography.labelSmall
-                        )
                     }
                 }
 
+                // Option 2: Direct SIM Radio
+                Surface(
+                    color = if (settings?.preferredTransport == "DIRECT_SIM") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, if (settings?.preferredTransport == "DIRECT_SIM") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        RadioButton(
+                            selected = settings?.preferredTransport == "DIRECT_SIM",
+                            onClick = {
+                                if (settings?.directSimPolicyAcknowledged == true) {
+                                    viewModel.updateTransportMode("DIRECT_SIM")
+                                } else {
+                                    showDirectSimDisclosureDialog = true
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Direct SIM Dispatch (Gated)",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Sends directly via Android SmsManager. Strictly for sideloaded/enterprise APKs with explicit SEND_SMS permission.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Direct SIM controls when acknowledged
                 if (settings?.directSimPolicyAcknowledged == true) {
-                    HorizontalDivider()
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Enable Direct SIM Dispatch")
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Enable Direct SIM Dispatch",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "Requires SEND_SMS permission grant",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Switch(
                             checked = settings?.directSimFeatureEnabled == true,
                             onCheckedChange = { enabled ->
@@ -229,22 +358,29 @@ fun SettingsScreen(
                         )
                     }
 
-                    // Dual SIM Selector
-                    Text("Dual-SIM Subscription Pinning", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                    // Dual SIM Configuration
+                    Text(
+                        text = "Dual-SIM Subscription Slot",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
                     if (activeSims.isEmpty()) {
-                        Text(
-                            "Grant READ_PHONE_STATE permission to detect active dual-SIM slots, or using single SIM default.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        OutlinedButton(onClick = {
-                            permissionLauncher.launch(arrayOf(Manifest.permission.READ_PHONE_STATE))
-                        }) {
-                            Text("Detect Installed SIM Cards")
+                        OutlinedButton(
+                            onClick = { permissionLauncher.launch(arrayOf(Manifest.permission.READ_PHONE_STATE)) },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.SimCard, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Detect Installed Dual SIM Slots")
                         }
                     } else {
                         activeSims.forEach { sim ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 RadioButton(
                                     selected = settings?.selectedSimSubscriptionId == sim.subscriptionId,
                                     onClick = { viewModel.selectSimSubscription(sim.subscriptionId) }
@@ -258,18 +394,40 @@ fun SettingsScreen(
             }
         }
 
-        // Regulatory & Compliance
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Telecom Regulatory Guidance", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        // Section 3: Telecom Regulatory & India TRAI Mode
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Telecom & Rate Quota Advisory",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("India TRAI Compliance Mode")
-                        Text("Enforces 100 SMS/day warning and 10 AM - 9 PM promotional window", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "India TRAI Compliance Mode",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Advises on 100 SMS/day limit and 10 AM - 9 PM commercial window.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     Switch(
                         checked = settings?.indiaTraiComplianceMode != false,
@@ -279,93 +437,162 @@ fun SettingsScreen(
 
                 OutlinedButton(
                     onClick = { showTraiGuideDialog = true },
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.Info, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("View India TRAI / DLT Compliance Guide")
+                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Read India TRAI / DLT Business Guide")
                 }
             }
         }
 
-        // Appearance
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Appearance & Theme", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Section 4: Appearance & Theme Mode
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Appearance & Theme",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Select application visual theme:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     FilterChip(
-                        selected = settings?.themeMode == "SYSTEM",
+                        selected = settings?.themeMode == "SYSTEM" || settings?.themeMode == null,
                         onClick = { viewModel.updateThemeMode("SYSTEM") },
-                        label = { Text("System") }
+                        label = { Text("System Default") },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = settings?.themeMode == "LIGHT",
                         onClick = { viewModel.updateThemeMode("LIGHT") },
-                        label = { Text("Light") }
+                        label = { Text("Light") },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = settings?.themeMode == "DARK",
                         onClick = { viewModel.updateThemeMode("DARK") },
-                        label = { Text("Dark") }
+                        label = { Text("Dark") },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
         }
 
-        // Privacy Policy & Local Data Sovereignty
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Privacy & Data Sovereignty", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        // Section 5: Privacy & Data Sovereignty
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = StatusSuccess, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Data Sovereignty & Offline Guarantee",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
                 Text(
-                    "All customer phone numbers, names, and message records are kept in local SQLite storage with zero internet access. Android Cloud Backup is explicitly disabled to prevent customer data leaks.",
-                    style = MaterialTheme.typography.bodySmall
+                    text = "This app declares zero internet permissions in AndroidManifest.xml. Your customer phone numbers, message texts, and opt-out suppression records cannot be leaked or transmitted to any third-party server.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp
                 )
+
                 OutlinedButton(
                     onClick = { showPrivacyPolicyDialog = true },
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("View In-App Privacy Commitment")
+                    Text("View Offline Privacy Commitment")
                 }
             }
         }
 
-        // Destructive Wipe
+        // Section 6: Danger Zone (Erase Data)
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, StatusError.copy(alpha = 0.3f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Erase All Data", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
-                    "Permanently delete all customer records, suppression lists, campaign histories, and profiles from this phone.",
-                    style = MaterialTheme.typography.bodySmall
+                    text = "Danger Zone: Clear Local Database",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = StatusError
                 )
+                Text(
+                    text = "Permanently wipe all customer records, suppression lists, message history, and business profile settings from this phone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
                 Button(
                     onClick = { showWipeConfirmDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusError),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.DeleteForever, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Delete All Local Business Data")
+                    Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Delete All Local Business Data", fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         if (wipeSuccessSnackbar) {
             Snackbar(action = { TextButton(onClick = { wipeSuccessSnackbar = false }) { Text("OK") } }) {
-                Text("All local data successfully deleted.")
+                Text("All local business data successfully deleted.")
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     // Direct SIM Disclosure Modal
     if (showDirectSimDisclosureDialog) {
         AlertDialog(
             onDismissRequest = { showDirectSimDisclosureDialog = false },
-            title = { Text("Direct SIM Policy & Quota Disclosure") },
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("Direct SIM Policy & Quota Disclosure", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         "• Google Play Policy Restriction: Google Play restricts the SEND_SMS permission strictly to default SMS handler apps or qualified enterprise sideloaded apps.",
                         fontWeight = FontWeight.SemiBold
@@ -376,11 +603,14 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.acknowledgeDirectSimPolicy(true)
-                    viewModel.updateTransportMode("DIRECT_SIM")
-                    showDirectSimDisclosureDialog = false
-                }) {
+                Button(
+                    onClick = {
+                        viewModel.acknowledgeDirectSimPolicy(true)
+                        viewModel.updateTransportMode("DIRECT_SIM")
+                        showDirectSimDisclosureDialog = false
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
                     Text("I Acknowledge & Agree")
                 }
             },
@@ -394,14 +624,15 @@ fun SettingsScreen(
     if (showTraiGuideDialog) {
         AlertDialog(
             onDismissRequest = { showTraiGuideDialog = false },
-            title = { Text("India TRAI (TCCCPR) Compliance Guide") },
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("India TRAI (TCCCPR) Compliance Guide", fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("1. Personal SIM Daily Limit:", fontWeight = FontWeight.Bold)
-                    Text("Indian telecom operators (Jio, Airtel, Vi, BSNL) enforce a regulatory limit of 100 SMS per day per SIM card. Exceeding 100 messages triggers commercial tariff spikes or automated SIM suspension.")
+                    Text("Indian telecom operators enforce a regulatory limit of 100 SMS per day per SIM card. Exceeding 100 messages triggers commercial tariff spikes or automated SIM suspension.")
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("2. Permitted Commercial Hours:", fontWeight = FontWeight.Bold)
                     Text("Commercial & promotional messages are only permitted between 10:00 AM and 9:00 PM IST. Never message customers outside these hours.")
@@ -414,7 +645,12 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = { showTraiGuideDialog = false }) { Text("Close Guide") }
+                Button(
+                    onClick = { showTraiGuideDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Close Guide")
+                }
             }
         )
     }
@@ -423,7 +659,8 @@ fun SettingsScreen(
     if (showPrivacyPolicyDialog) {
         AlertDialog(
             onDismissRequest = { showPrivacyPolicyDialog = false },
-            title = { Text("In-App Privacy Commitment") },
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("In-App Privacy Commitment", fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -436,7 +673,12 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = { showPrivacyPolicyDialog = false }) { Text("Got It") }
+                Button(
+                    onClick = { showPrivacyPolicyDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Got It")
+                }
             }
         )
     }
@@ -445,7 +687,8 @@ fun SettingsScreen(
     if (showWipeConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showWipeConfirmDialog = false },
-            title = { Text("Permanently Delete All Data?") },
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("Permanently Delete All Data?", fontWeight = FontWeight.Bold) },
             text = {
                 Text("This action will immediately erase all customer directories, opt-out suppression lists, templates, and campaign records from this phone. This action cannot be undone.")
             },
@@ -457,7 +700,8 @@ fun SettingsScreen(
                             wipeSuccessSnackbar = true
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusError),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Erase Everything")
                 }

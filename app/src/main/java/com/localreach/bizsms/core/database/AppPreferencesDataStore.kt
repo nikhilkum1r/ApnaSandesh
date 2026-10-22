@@ -38,7 +38,7 @@ class AppPreferencesDataStore @Inject constructor(
     }
 
     val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[KEY_THEME_MODE] ?: "SYSTEM"
+        preferences[KEY_THEME_MODE] ?: "LIGHT"
     }
 
     suspend fun setThemeMode(mode: String) {

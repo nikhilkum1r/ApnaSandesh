@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <path
+        android:pathData="M60,10 C87.61,10 110,32.39 110,60 C110,87.61 87.61,110 60,110 C32.39,110 10,87.61 10,60 C10,32.39 32.39,10 60,10 Z"
+        android:fillColor="#F1F5F9" />
+    <path
+        android:pathData="M60,22 C80.98,22 98,39.02 98,60 C98,80.98 80.98,98 60,98 C39.02,98 22,80.98 22,60 C22,39.02 39.02,22 60,22 Z"
+        android:fillColor="#E2E8F0" />
+    <!-- Clock dial -->
+    <path
+        android:pathData="M60,34 C74.36,34 86,45.64 86,60 C86,74.36 74.36,86 60,86 C45.64,86 34,74.36 34,60 C34,45.64 45.64,34 60,34 Z"
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="3" />
+    <!-- Clock hands -->
+    <path
+        android:pathData="M60,46 L60,60 L70,60"
+        android:strokeColor="#1E293B"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <!-- Checkmark status badge -->
+    <path
+        android:pathData="M76,68 C81.5,68 86,72.5 86,78 C86,83.5 81.5,88 76,88 C70.5,88 66,83.5 66,78 C66,72.5 70.5,68 76,68 Z"
+        android:fillColor="#10B981" />
+    <path
+        android:pathData="M71,78 L74,81 L81,74"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

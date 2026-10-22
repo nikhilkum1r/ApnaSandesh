@@ -3,24 +3,37 @@ package com.localreach.bizsms.feature.customers
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.localreach.bizsms.core.database.CustomerEntity
 import com.localreach.bizsms.core.database.CustomerGroupEntity
-import com.localreach.bizsms.core.database.SuppressionEntryEntity
+import com.localreach.bizsms.core.ui.theme.StatusError
+import com.localreach.bizsms.core.ui.theme.StatusSuccess
 import com.localreach.bizsms.domain.validation.CsvImportSummary
+import com.localreach.bizsms.domain.validation.PhoneNormalizer
+import com.localreach.bizsms.domain.validation.PhoneValidationResult
+import com.localreach.bizsms.feature.common.CustomerAvatar
+import com.localreach.bizsms.feature.common.EmptyStateView
 import com.localreach.bizsms.feature.common.StatusBadge
 
 /**
@@ -43,12 +56,14 @@ fun CustomerDirectoryScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var editingCustomer by remember { mutableStateOf<CustomerEntity?>(null) }
     var optOutTarget by remember { mutableStateOf<CustomerEntity?>(null) }
+    var deleteTarget by remember { mutableStateOf<CustomerEntity?>(null) }
 
     val filteredCustomers = remember(customers, searchQuery, selectedConsentFilter) {
         customers.filter { c ->
             val matchesQuery = searchQuery.isBlank() ||
                 c.fullName.contains(searchQuery, ignoreCase = true) ||
                 c.normalizedPhoneE164.contains(searchQuery) ||
+                c.rawPhoneNumber.contains(searchQuery) ||
                 c.tagsCsv.contains(searchQuery, ignoreCase = true) ||
                 c.notes.contains(searchQuery, ignoreCase = true)
 
@@ -63,13 +78,19 @@ fun CustomerDirectoryScreen(
         }
     }
 
+    val totalCount = customers.size
+    val optedInCount = remember(customers) { customers.count { it.consentStatus == "GRANTED" && !it.isOptedOut } }
+    val unknownCount = remember(customers) { customers.count { it.consentStatus == "UNKNOWN" && !it.isOptedOut } }
+    val suppressedCount = remember(customers) { customers.count { it.isOptedOut || it.consentStatus == "OPTED_OUT" } }
+
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Customer")
-            }
+            ExtendedFloatingActionButton(
+                onClick = { showAddDialog = true },
+                icon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
+                text = { Text("Add Customer", fontWeight = FontWeight.SemiBold) },
+                shape = RoundedCornerShape(14.dp)
+            )
         }
     ) { padding ->
         Column(
@@ -79,89 +100,137 @@ fun CustomerDirectoryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Header Action Bar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Customer Directory",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    text = "$totalCount contacts • $optedInCount eligible",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = onNavigateToImport) {
-                        Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
+                    FilledTonalButton(
+                        onClick = onNavigateToImport,
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Import")
+                        Text("Import", style = MaterialTheme.typography.labelMedium)
                     }
-                    OutlinedButton(onClick = onNavigateToGroups) {
-                        Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+
+                    OutlinedButton(
+                        onClick = onNavigateToGroups,
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Groups")
+                        Text("Groups", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
 
+            // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("Search by name, phone, tag, or notes") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                placeholder = { Text("Search by name, phone (+91...), tag, or note") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
                         }
                     }
                 },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Consent Filter Chips
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Horizontally Scrollable Consent Filter Chips
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 FilterChip(
                     selected = selectedConsentFilter == "ALL",
                     onClick = { selectedConsentFilter = "ALL" },
-                    label = { Text("All (${customers.size})") }
+                    label = { Text("All ($totalCount)") },
+                    shape = RoundedCornerShape(8.dp)
                 )
                 FilterChip(
                     selected = selectedConsentFilter == "GRANTED",
                     onClick = { selectedConsentFilter = "GRANTED" },
-                    label = { Text("Opted-In (${customers.count { it.consentStatus == "GRANTED" && !it.isOptedOut }})") }
+                    label = { Text("Opted-In ($optedInCount)") },
+                    shape = RoundedCornerShape(8.dp)
                 )
                 FilterChip(
                     selected = selectedConsentFilter == "UNKNOWN",
                     onClick = { selectedConsentFilter = "UNKNOWN" },
-                    label = { Text("Unknown (${customers.count { it.consentStatus == "UNKNOWN" && !it.isOptedOut }})") }
+                    label = { Text("Unknown ($unknownCount)") },
+                    shape = RoundedCornerShape(8.dp)
                 )
                 FilterChip(
                     selected = selectedConsentFilter == "OPTED_OUT",
                     onClick = { selectedConsentFilter = "OPTED_OUT" },
-                    label = { Text("Suppressed (${customers.count { it.isOptedOut || it.consentStatus == "OPTED_OUT" }})") }
+                    label = { Text("Suppressed ($suppressedCount)") },
+                    shape = RoundedCornerShape(8.dp)
                 )
             }
 
+            // Directory List
             if (filteredCustomers.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.PeopleOutline, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.outline)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("No customers found", color = MaterialTheme.colorScheme.outline)
-                    }
-                }
+                val isFilterActive = searchQuery.isNotBlank() || selectedConsentFilter != "ALL"
+                EmptyStateView(
+                    icon = if (isFilterActive) Icons.Default.SearchOff else Icons.Default.PeopleOutline,
+                    title = if (isFilterActive) "No matching customers found" else "Your customer directory is empty",
+                    description = if (isFilterActive) {
+                        "Try adjusting your search query or switching the consent filter."
+                    } else {
+                        "Add your local customers manually or import a contact list / CSV to start messaging."
+                    },
+                    actionButtonLabel = if (isFilterActive) "Clear Filters" else "Add First Customer",
+                    onActionButtonClick = {
+                        if (isFilterActive) {
+                            searchQuery = ""
+                            selectedConsentFilter = "ALL"
+                        } else {
+                            showAddDialog = true
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredCustomers, key = { it.id }) { customer ->
                         CustomerCard(
                             customer = customer,
                             onEdit = { editingCustomer = customer },
-                            onDelete = { onDeleteCustomer(customer.id) },
+                            onDelete = { deleteTarget = customer },
                             onOptOut = { optOutTarget = customer }
                         )
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(72.dp)) // Space for FAB
                     }
                 }
             }
@@ -192,34 +261,100 @@ fun CustomerDirectoryScreen(
         )
     }
 
-    optOutTarget?.let { customer ->
+    deleteTarget?.let { customer ->
         AlertDialog(
-            onDismissRequest = { optOutTarget = null },
-            title = { Text("Permanent Opt-Out & Suppression") },
+            onDismissRequest = { deleteTarget = null },
+            shape = RoundedCornerShape(16.dp),
+            icon = {
+                Icon(
+                    Icons.Default.DeleteForever,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete Customer Record?",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Text(
-                    "Permanently mark ${customer.fullName} (${customer.normalizedPhoneE164}) as OPTED-OUT? " +
-                        "This will add their number to the active Suppression Firewall, cancel any pending campaign messages, and permanently block future SMS dispatches."
+                    text = "Are you sure you want to delete ${customer.fullName} (${customer.normalizedPhoneE164})? Past campaign message records will be retained, but the customer will be removed from future recipient pickers.",
+                    style = MaterialTheme.typography.bodyMedium
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        onOptOut(customer, "Customer requested opt-out")
+                        onDeleteCustomer(customer.id)
+                        deleteTarget = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Delete Customer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    optOutTarget?.let { customer ->
+        AlertDialog(
+            onDismissRequest = { optOutTarget = null },
+            shape = RoundedCornerShape(16.dp),
+            icon = {
+                Icon(
+                    Icons.Default.Shield,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Permanent Opt-Out Firewall",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Permanently suppress ${customer.fullName} (${customer.normalizedPhoneE164}) from future messaging?\n\nThis immediately adds their phone number to the local Suppression Firewall and automatically cancels any pending or queued campaign drafts for them.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onOptOut(customer, "Customer requested STOP / Opt-out")
                         optOutTarget = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Confirm Permanent Opt-Out")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { optOutTarget = null }) { Text("Cancel") }
+                TextButton(onClick = { optOutTarget = null }) {
+                    Text("Cancel")
+                }
             }
         )
     }
 }
 
+/**
+ * Production-Quality Customer Card with initials avatar, tag pills, note box, and clean actions.
+ */
 @Composable
 fun CustomerCard(
     customer: CustomerEntity,
@@ -227,49 +362,136 @@ fun CustomerCard(
     onDelete: () -> Unit,
     onOptOut: () -> Unit
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                CustomerAvatar(name = customer.fullName, size = 42)
+
+                Spacer(modifier = Modifier.width(12.dp))
+
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(customer.fullName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(customer.normalizedPhoneE164, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = customer.fullName,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = customer.normalizedPhoneE164,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                StatusBadge(status = if (customer.isOptedOut) "OPTED_OUT" else customer.consentStatus)
+
+                StatusBadge(
+                    status = if (customer.isOptedOut) "OPTED_OUT" else customer.consentStatus
+                )
             }
 
+            // Tags Row
             if (customer.tagsCsv.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text("Tags: ${customer.tagsCsv}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            }
-
-            if (customer.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Note: ${customer.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                if (!customer.isOptedOut && customer.consentStatus != "OPTED_OUT") {
-                    TextButton(onClick = onOptOut) {
-                        Text("Opt-Out", color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    customer.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }.forEach { tag ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                        ) {
+                            Text(
+                                text = "#$tag",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
-                TextButton(onClick = onEdit) { Text("Edit") }
-                TextButton(onClick = onDelete) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+
+            // Customer Notes
+            if (customer.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Note: ${customer.notes}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(8.dp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (!customer.isOptedOut && customer.consentStatus != "OPTED_OUT") {
+                    TextButton(
+                        onClick = onOptOut,
+                        colors = ButtonDefaults.textButtonColors(contentColor = StatusError)
+                    ) {
+                        Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Opt-Out", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                TextButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Edit", style = MaterialTheme.typography.labelMedium)
+                }
+
+                TextButton(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Delete", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
     }
 }
 
+/**
+ * Customer Edit Dialog with live E.164 normalization preview and tag recommendations.
+ */
 @Composable
 fun CustomerEditDialog(
     customer: CustomerEntity?,
@@ -282,67 +504,182 @@ fun CustomerEditDialog(
     var notes by remember { mutableStateOf(customer?.notes ?: "") }
     var consent by remember { mutableStateOf(customer?.consentStatus ?: "GRANTED") }
 
+    val phoneNormalizer = remember { PhoneNormalizer() }
+    val normalizationResult = remember(phone) { phoneNormalizer.normalize(phone, "+91") }
+
+    val isPhoneValid = normalizationResult is PhoneValidationResult.Valid
+    val canSubmit = name.trim().isNotBlank() && phone.trim().isNotBlank()
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (customer == null) "Add Customer" else "Edit Customer") },
+        shape = RoundedCornerShape(16.dp),
+        title = {
+            Text(
+                text = if (customer == null) "Add Customer" else "Edit Customer",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Full Name *") },
+                    placeholder = { Text("e.g. Aarav Sharma") },
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("Phone Number * (e.g. 9876543210 or +91...)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = tags,
-                    onValueChange = { tags = it },
-                    label = { Text("Tags (comma separated, e.g. vip, retail)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = { Text("Phone Number *") },
+                        placeholder = { Text("9876543210 or +91...") },
+                        isError = phone.isNotBlank() && !isPhoneValid,
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Live E.164 normalization feedback
+                    if (phone.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        when (normalizationResult) {
+                            is PhoneValidationResult.Valid -> {
+                                Text(
+                                    text = "✓ E.164 Standard: ${normalizationResult.e164Phone}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = StatusSuccess,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            is PhoneValidationResult.Invalid -> {
+                                Text(
+                                    text = "⚠ ${normalizationResult.reason}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Tags
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = tags,
+                        onValueChange = { tags = it },
+                        label = { Text("Tags (comma-separated)") },
+                        placeholder = { Text("vip, retail, festival") },
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("vip", "retail", "wholesale", "frequent", "lead").forEach { suggestedTag ->
+                            SuggestionChip(
+                                onClick = {
+                                    val currentTags = tags.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                                    if (!currentTags.contains(suggestedTag)) {
+                                        tags = if (tags.isBlank()) suggestedTag else "$tags, $suggestedTag"
+                                    }
+                                },
+                                label = { Text("+$suggestedTag", style = MaterialTheme.typography.labelSmall) },
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes (Avoid sensitive financial/health PII)") },
+                    label = { Text("Customer Notes") },
+                    placeholder = { Text("Preferences, order notes (avoid sensitive PII)") },
+                    shape = RoundedCornerShape(10.dp),
+                    minLines = 2,
+                    maxLines = 3,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Consent Status", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = consent == "GRANTED",
-                        onClick = { consent = "GRANTED" },
-                        label = { Text("Opted-In") }
+
+                // Consent Status Selector
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Consent Status",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    FilterChip(
-                        selected = consent == "UNKNOWN",
-                        onClick = { consent = "UNKNOWN" },
-                        label = { Text("Unknown") }
-                    )
-                    FilterChip(
-                        selected = consent == "OPTED_OUT",
-                        onClick = { consent = "OPTED_OUT" },
-                        label = { Text("Opted-Out") }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = consent == "GRANTED",
+                            onClick = { consent = "GRANTED" },
+                            label = { Text("Opted-In") },
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        FilterChip(
+                            selected = consent == "UNKNOWN",
+                            onClick = { consent = "UNKNOWN" },
+                            label = { Text("Unknown") },
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        FilterChip(
+                            selected = consent == "OPTED_OUT",
+                            onClick = { consent = "OPTED_OUT" },
+                            label = { Text("Opted-Out") },
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+                    Text(
+                        text = when (consent) {
+                            "GRANTED" -> "Eligible for transactional and promotional broadcasts."
+                            "UNKNOWN" -> "Eligible for transactional updates only (e.g. order ready)."
+                            else -> "Suppressed. Will never receive broadcasts."
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(name, phone, tags, notes, consent) }
+                onClick = {
+                    if (canSubmit) {
+                        onConfirm(name, phone, tags, notes, consent)
+                    }
+                },
+                enabled = canSubmit,
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Save")
+                Text(if (customer == null) "Add Customer" else "Save Changes")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
         }
     )
 }
@@ -380,124 +717,371 @@ fun CustomerImportScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text("Customer Import & Export", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.width(4.dp))
+            Column {
+                Text(
+                    text = "Import & Export",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Easily load contacts or backup customer records",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("System Contact Picker", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        // Method 1: System Contact Picker
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PersonSearch,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "System Contact Picker",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "Zero-Permission Private Import",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = StatusSuccess
+                        )
+                    }
+                }
+
                 Text(
-                    "Import individual contacts directly through Android's zero-permission system picker. " +
-                        "This app never reads your full address book.",
+                    text = "Pick individual contacts directly via Android's secure system picker. This application never requests full address book permission.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
                 Button(
                     onClick = { contactPickerLauncher.launch(null) },
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
                 ) {
-                    Icon(Icons.Default.PersonSearch, contentDescription = null)
+                    Icon(Icons.Default.PersonSearch, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Select Contact via System Picker")
+                    Text("Select Contact via System Picker", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("SAF CSV Import", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        // Method 2: CSV File Import
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.UploadFile,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "CSV Spreadsheet Import",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "Bulk import with automatic phone normalization",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 Text(
-                    "Import customer lists from a CSV file. Supported columns: Name, Phone, Tags, Consent_Status, Notes. " +
-                        "Duplicates and permanently opted-out suppressed numbers will be automatically checked.",
+                    text = "Upload a CSV spreadsheet containing customer contacts. Supported columns: Name, Phone, Tags, Notes, Consent_Status.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedButton(
-                    onClick = { csvImportLauncher.launch(arrayOf("text/comma-separated-values", "text/csv", "*/*")) },
+
+                // CSV format guide snippet
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.UploadFile, contentDescription = null)
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "Expected CSV Header Format:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Name,Phone,Tags,Notes,Consent_Status\nRajesh Kumar,9876543210,retail,Weekly buyer,GRANTED",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { csvImportLauncher.launch(arrayOf("text/comma-separated-values", "text/csv", "*/*")) },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                ) {
+                    Icon(Icons.Default.FileOpen, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Choose CSV File to Import")
+                    Text("Select CSV File to Import", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
 
+        // Live CSV Preview Results
         if (preview != null) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Live CSV Import Summary", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("• Valid Customers Added: ${preview.validCustomers.size}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    Text("• Duplicate Phones In File: ${preview.duplicatePhonesInFile.size}")
-                    Text("• Opt-Out Suppressed Skipped: ${preview.suppressedSkippedCount}", color = MaterialTheme.colorScheme.error)
-                    Text("• Invalid Rows Rejection: ${preview.invalidRows.size}")
-
-                    if (preview.invalidRows.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Rejected Rows:", fontWeight = FontWeight.SemiBold)
-                        preview.invalidRows.take(5).forEach { (line, reason) ->
-                            Text("Line $line: $reason", style = MaterialTheme.typography.labelSmall)
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "CSV Import Audit Summary",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        IconButton(onClick = onClearPreview) {
+                            Icon(Icons.Default.Close, contentDescription = "Close preview")
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = onClearPreview,
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Acknowledge & Close Preview")
+                        Surface(
+                            color = StatusSuccess.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("Valid Imported", style = MaterialTheme.typography.labelSmall, color = StatusSuccess)
+                                Text("${preview.validCustomers.size}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = StatusSuccess)
+                            }
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("Duplicate Phones", style = MaterialTheme.typography.labelSmall)
+                                Text("${preview.duplicatePhonesInFile.size}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Surface(
+                            color = StatusError.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("Suppressed", style = MaterialTheme.typography.labelSmall, color = StatusError)
+                                Text("${preview.suppressedSkippedCount}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = StatusError)
+                            }
+                        }
+                    }
+
+                    if (preview.invalidRows.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Rejected Rows (${preview.invalidRows.size}):",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = StatusError
+                        )
+                        preview.invalidRows.take(5).forEach { (line, reason) ->
+                            Text(
+                                text = "• Line $line: $reason",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onClearPreview,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Acknowledge & Close")
                     }
                 }
             }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Customer Directory Export", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        // Method 3: Export CSV
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Export Customer Directory",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "Device-local CSV backup via Storage Access Framework",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 Text(
-                    "Export your customer directory to a CSV file on your device via Storage Access Framework.",
+                    text = "Export your entire customer database to a CSV file. Saved directly to your device storage.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
                 OutlinedButton(
                     onClick = { showExportWarningDialog = true },
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
                 ) {
-                    Icon(Icons.Default.Download, contentDescription = null)
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Export All Customers to CSV")
+                    Text("Export All Customers to CSV", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (showExportWarningDialog) {
         AlertDialog(
             onDismissRequest = { showExportWarningDialog = false },
-            title = { Text("CSV Export Privacy Warning") },
+            shape = RoundedCornerShape(16.dp),
+            icon = {
+                Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+            },
+            title = {
+                Text(
+                    text = "Customer Privacy & Export Warning",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Text(
-                    "Exported CSV files are unencrypted and contain your customers' personal contact details, notes, and consent history. " +
-                        "Ensure you store the exported file securely on your device."
+                    text = "Exported CSV files are unencrypted and contain your customers' full names, phone numbers, and notes.\n\nEnsure that you store the exported file securely on this device and avoid sharing it over insecure channels.",
+                    style = MaterialTheme.typography.bodyMedium
                 )
             },
             confirmButton = {
-                Button(onClick = {
-                    showExportWarningDialog = false
-                    csvExportLauncher.launch("localreach_customers_export.csv")
-                }) {
+                Button(
+                    onClick = {
+                        showExportWarningDialog = false
+                        csvExportLauncher.launch("localreach_customers_export.csv")
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
                     Text("Proceed with Export")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showExportWarningDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showExportWarningDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -524,50 +1108,132 @@ fun CustomerGroupsScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
-                Text("Customer Groups", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-            Button(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("New Group")
+                Column {
+                    Text(
+                        text = "Customer Groups",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${groups.size} groups configured",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Button(
+                onClick = {
+                    groupName = ""
+                    groupDesc = ""
+                    showCreateDialog = true
+                },
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("New Group", fontWeight = FontWeight.SemiBold)
             }
         }
 
         if (groups.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No groups created yet. Group customers to send targeted campaigns.", color = MaterialTheme.colorScheme.outline)
-            }
+            EmptyStateView(
+                icon = Icons.Default.GroupAdd,
+                title = "No Customer Groups Yet",
+                description = "Organize customers into groups (e.g. VIP Clients, Festival Buyers, Wholesale) for targeted, personalized campaigns.",
+                actionButtonLabel = "Create First Group",
+                onActionButtonClick = { showCreateDialog = true },
+                modifier = Modifier.weight(1f)
+            )
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
                 items(groups, key = { it.id }) { group ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Group,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(group.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = group.name,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                                 if (group.description.isNotBlank()) {
-                                    Text(group.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = group.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
+
                             IconButton(onClick = {
                                 editingGroup = group
                                 groupName = group.name
                                 groupDesc = group.description
                             }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit")
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Edit Group",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
+
                             IconButton(onClick = { onDeleteGroup(group.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                Icon(
+                                    Icons.Default.DeleteOutline,
+                                    contentDescription = "Delete Group",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }
@@ -579,34 +1245,56 @@ fun CustomerGroupsScreen(
     if (showCreateDialog) {
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
-            title = { Text("Create Customer Group") },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = "Create Customer Group",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = groupName,
                         onValueChange = { groupName = it },
                         label = { Text("Group Name *") },
+                        placeholder = { Text("e.g. VIP Shoppers") },
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = groupDesc,
                         onValueChange = { groupDesc = it },
-                        label = { Text("Description") },
+                        label = { Text("Description (Optional)") },
+                        placeholder = { Text("e.g. High value customers with seasonal orders") },
+                        shape = RoundedCornerShape(10.dp),
+                        minLines = 2,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    if (groupName.isNotBlank()) {
-                        onCreateGroup(groupName, groupDesc)
-                        groupName = ""; groupDesc = ""
-                        showCreateDialog = false
-                    }
-                }) { Text("Create") }
+                Button(
+                    onClick = {
+                        if (groupName.isNotBlank()) {
+                            onCreateGroup(groupName, groupDesc)
+                            groupName = ""
+                            groupDesc = ""
+                            showCreateDialog = false
+                        }
+                    },
+                    enabled = groupName.trim().isNotBlank(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Create Group")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showCreateDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -614,33 +1302,52 @@ fun CustomerGroupsScreen(
     editingGroup?.let { group ->
         AlertDialog(
             onDismissRequest = { editingGroup = null },
-            title = { Text("Edit Group") },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = "Edit Group",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = groupName,
                         onValueChange = { groupName = it },
                         label = { Text("Group Name *") },
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = groupDesc,
                         onValueChange = { groupDesc = it },
                         label = { Text("Description") },
+                        shape = RoundedCornerShape(10.dp),
+                        minLines = 2,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    if (groupName.isNotBlank()) {
-                        onUpdateGroup(group.id, groupName, groupDesc)
-                        editingGroup = null
-                    }
-                }) { Text("Save") }
+                Button(
+                    onClick = {
+                        if (groupName.isNotBlank()) {
+                            onUpdateGroup(group.id, groupName, groupDesc)
+                            editingGroup = null
+                        }
+                    },
+                    enabled = groupName.trim().isNotBlank(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Save Changes")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { editingGroup = null }) { Text("Cancel") }
+                TextButton(onClick = { editingGroup = null }) {
+                    Text("Cancel")
+                }
             }
         )
     }
