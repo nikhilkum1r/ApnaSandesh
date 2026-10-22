@@ -21,7 +21,7 @@ const USE_CASES: UseCase[] = [
     narrative:
       'Instead of calling 60 customers individually when fresh oil, grains, or festival hampers arrive, store owners dispatch personalized SMS in 3 minutes directly over their store smartphone.',
     roi: 'Saves ~₹18,000/yr vs cloud SMS portals while recovering credit khata dues 4x faster.',
-    image: '/images/use-cases/kirana-retail-store.jpg',
+    image: '/images/use-cases/kirana-retail-store.webp',
     sampleSms:
       'Namaste {name} ji, your monthly grocery order #{order_id} at Gupta Provisions is packed and ready. Total: Rs {amount}. Home delivery available today.',
     stats: [
@@ -37,7 +37,7 @@ const USE_CASES: UseCase[] = [
     narrative:
       'Small neighborhood medical practices and pathology labs send automated appointment time reminders and test readiness alerts without sharing sensitive patient health lists with online SaaS platforms.',
     roi: 'Eliminates 70% of patient no-shows with absolute patient record confidentiality.',
-    image: '/images/use-cases/clinic-doctor-visit.jpg',
+    image: '/images/use-cases/clinic-doctor-visit.webp',
     sampleSms:
       'Dear {name}, your lab investigation report for Dr. Mehta Consultation is ready. You may collect it between 4 PM to 8 PM. - Apex Diagnostic',
     stats: [
@@ -53,7 +53,7 @@ const USE_CASES: UseCase[] = [
     narrative:
       'Service shops notify customers instantly when their smartphone screen, laptop motherboard, or appliance has been diagnosed or repaired with exact estimate approvals.',
     roi: 'Zero uncollected customer phones sitting in stock; instantaneous pickup turnarounds.',
-    image: '/images/use-cases/mobile-repair-shop.jpg',
+    image: '/images/use-cases/mobile-repair-shop.webp',
     sampleSms:
       'Hello {name}, your phone repair (Job #{job_no}) is complete and thoroughly tested. Estimated pickup balance: Rs {balance}. FastFix Sector 18.',
     stats: [
@@ -69,7 +69,7 @@ const USE_CASES: UseCase[] = [
     narrative:
       'Teachers and institute directors send daily absence notices and weekly test score summaries to parents directly after class without paying per-student subscription fees.',
     roi: 'Replaces costly custom school management apps with 100% reliable SMS that parents actually read.',
-    image: '/images/use-cases/coaching-classroom.jpg',
+    image: '/images/use-cases/coaching-classroom.webp',
     sampleSms:
       'Respected Parent, {student_name} was present for Physics batch today and scored {score}/50 in the thermodynamics weekly test. - BrightFuture Academy',
     stats: [
@@ -85,7 +85,7 @@ const USE_CASES: UseCase[] = [
     narrative:
       'Boutique unisex salons and aesthetic studios send appointment slots and personalized celebratory discount vouchers to loyal clients on their special occasions.',
     roi: 'Boosts re-booking rates by 42% on quiet weekday slots.',
-    image: '/images/use-cases/salon-spa.jpg',
+    image: '/images/use-cases/salon-spa.webp',
     sampleSms:
       'Dear {name}, Happy Birthday from Glow Unisex Studio! Enjoy an exclusive 25% privilege voucher valid till {expiry}. Call 98112-XXXX to book.',
     stats: [

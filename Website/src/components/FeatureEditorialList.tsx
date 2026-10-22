@@ -21,7 +21,7 @@ const FEATURES: FeatureItem[] = [
       'Rather than routing your business messages through expensive third-party cloud aggregators with 300% markup, ApnaSandesh leverages Android’s native TelephonyManager and SmsManager directly. Sequential dispatches are spaced by an enforced 3.5s to 6.0s jittered throttle to honor carrier fair-use policies and protect your SIM reputation.',
     subtext:
       'Operates seamlessly with single or dual SIM configurations across Jio, Airtel, Vodafone Idea, and BSNL without requiring DLT portal registration for individual subscriber quotas.',
-    image: '/images/features/state-machine-flow.jpg',
+    image: '/images/features/state-machine-flow.webp',
     badgeText: 'Carrier Compliant',
     metrics: [
       { label: 'Carrier Markup', value: '₹0.00 / SMS' },
@@ -37,7 +37,7 @@ const FEATURES: FeatureItem[] = [
       'Cloud SMS portals store your customer names, mobile numbers, purchase history, and message content on remote multi-tenant databases prone to scraping, breaches, and competitive surveillance. ApnaSandesh writes every contact, campaign log, and opt-out suppression entry to an encrypted Room SQLite database inside your phone’s isolated application sandbox.',
     subtext:
       'Even if you completely disable Wi-Fi and Cellular Mobile Data, ApnaSandesh executes your queued campaigns flawlessly using only cellular baseband radio.',
-    image: '/images/features/offline-privacy-architecture.jpg',
+    image: '/images/features/offline-privacy-architecture.webp',
     badgeText: 'Zero Cloud Storage',
     metrics: [
       { label: 'Remote Server Calls', value: '0 per day' },
@@ -53,7 +53,7 @@ const FEATURES: FeatureItem[] = [
       'Personalize bulk messages with custom placeholder tags ({name}, {date}, {balance}, {order_id}) imported directly from your contact spreadsheets. ApnaSandesh’s live tokenizer recalculates character counts on keystroke, warning you before unicode characters convert a standard 160-char SMS into a 70-char UCS-2 multi-part segment.',
     subtext:
       'Comes pre-loaded with 30+ production-tested Hindi, Hinglish, and English templates designed for billing reminders, festive offers, and service updates.',
-    image: '/images/features/template-manager.jpg',
+    image: '/images/features/template-manager.webp',
     badgeText: 'Unicode Protected',
     metrics: [
       { label: 'Pre-loaded Templates', value: '30+ Industry Sets' },
@@ -69,7 +69,7 @@ const FEATURES: FeatureItem[] = [
       'Bring your existing customer databases without tedious reformatting. ApnaSandesh accepts standard comma-delimited or semicolon-delimited CSV spreadsheets exported from Excel, Google Sheets, Tally, Vyapar, or Khatabook. The ingestion pipeline strips malicious formula injections, validates 10-digit Indian mobile formats, and suppresses unsubscribed numbers.',
     subtext:
       'Import 500 contacts in under 1.2 seconds directly from your phone’s storage or SD card.',
-    image: '/images/features/csv-import-security.jpg',
+    image: '/images/features/csv-import-security.webp',
     badgeText: 'Injection Safe',
     metrics: [
       { label: 'Import Speed', value: '500 rows / 1.2s' },

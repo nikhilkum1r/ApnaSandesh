@@ -48,13 +48,13 @@ export const metadata: Metadata = {
     siteName: 'ApnaSandesh by TruStoryX Digital',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/og-image.webp',
         width: 1200,
         height: 630,
         alt: 'ApnaSandesh Android Business SMS Workstation',
       },
       {
-        url: '/apnasandesh_hero_banner.png',
+        url: '/images/hero/hero-banner.webp',
         width: 1024,
         height: 576,
         alt: 'ApnaSandesh Android UI Showcase',
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'ApnaSandesh — Aapka Number, Aapke Customers.',
     description: SITE_CONFIG.description,
-    images: ['/og-image.jpg'],
+    images: ['/og-image.webp'],
     creator: '@trustoryx',
   },
   icons: {

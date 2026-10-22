@@ -134,7 +134,7 @@ export function HeroSection() {
               <div className="relative rounded-[4px] border border-[#E6E4DD] bg-white overflow-hidden shadow-xs group">
                 <div className="aspect-[16/10] overflow-hidden bg-[#FAF9F6] relative">
                   <img
-                    src="/apnasandesh_hero_banner.png"
+                    src="/images/hero/hero-banner.webp"
                     alt="ApnaSandesh Android Application Hero Banner"
                     className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                   />
