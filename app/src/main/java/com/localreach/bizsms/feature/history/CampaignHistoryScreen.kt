@@ -37,6 +37,7 @@ import com.localreach.bizsms.core.database.CampaignRecipientEntity
 import com.localreach.bizsms.core.database.SendAttemptEntity
 import com.localreach.bizsms.core.ui.theme.StatusError
 import com.localreach.bizsms.core.ui.theme.StatusSuccess
+import com.localreach.bizsms.R
 import com.localreach.bizsms.data.campaign.CampaignRepository
 import com.localreach.bizsms.feature.common.CustomerAvatar
 import com.localreach.bizsms.feature.common.EmptyStateView
@@ -162,18 +163,12 @@ fun CampaignHistoryScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         if (selectedCampaign == null) {
-            Column {
-                Text(
-                    text = "Campaign History & Audit",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Complete record of sent broadcasts, handoffs, and delivery logs",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = "${campaigns.size} broadcasts recorded • Offline audit log",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
 
         // Notification Banner
@@ -209,6 +204,7 @@ fun CampaignHistoryScreen(
         } else {
             if (campaigns.isEmpty()) {
                 EmptyStateView(
+                    illustrationRes = R.drawable.ic_empty_history,
                     icon = Icons.Default.HistoryToggleOff,
                     title = "No Past Campaigns Recorded",
                     description = "When you compose and broadcast SMS campaigns, their delivery summaries and timestamps will be stored here.",

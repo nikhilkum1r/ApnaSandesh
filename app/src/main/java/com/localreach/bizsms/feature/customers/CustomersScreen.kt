@@ -32,6 +32,7 @@ import com.localreach.bizsms.core.ui.theme.StatusSuccess
 import com.localreach.bizsms.domain.validation.CsvImportSummary
 import com.localreach.bizsms.domain.validation.PhoneNormalizer
 import com.localreach.bizsms.domain.validation.PhoneValidationResult
+import com.localreach.bizsms.R
 import com.localreach.bizsms.feature.common.CustomerAvatar
 import com.localreach.bizsms.feature.common.EmptyStateView
 import com.localreach.bizsms.feature.common.StatusBadge
@@ -198,6 +199,7 @@ fun CustomerDirectoryScreen(
             if (filteredCustomers.isEmpty()) {
                 val isFilterActive = searchQuery.isNotBlank() || selectedConsentFilter != "ALL"
                 EmptyStateView(
+                    illustrationRes = if (isFilterActive) null else R.drawable.ic_empty_customers,
                     icon = if (isFilterActive) Icons.Default.SearchOff else Icons.Default.PeopleOutline,
                     title = if (isFilterActive) "No matching customers found" else "Your customer directory is empty",
                     description = if (isFilterActive) {
@@ -1153,6 +1155,7 @@ fun CustomerGroupsScreen(
 
         if (groups.isEmpty()) {
             EmptyStateView(
+                illustrationRes = R.drawable.ic_empty_customers,
                 icon = Icons.Default.GroupAdd,
                 title = "No Customer Groups Yet",
                 description = "Organize customers into groups (e.g. VIP Clients, Festival Buyers, Wholesale) for targeted, personalized campaigns.",

@@ -31,6 +31,7 @@ import com.localreach.bizsms.core.database.TemplateDao
 import com.localreach.bizsms.core.model.TemplateCategory
 import com.localreach.bizsms.domain.validation.SmsSegmentCalculator
 import com.localreach.bizsms.domain.validation.TemplateRenderer
+import com.localreach.bizsms.R
 import com.localreach.bizsms.feature.common.EmptyStateView
 import com.localreach.bizsms.feature.common.SmsBubblePreview
 import com.localreach.bizsms.feature.common.TokenChipTray
@@ -150,17 +151,24 @@ fun TemplateLibraryScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                }
-                Column {
+                    Column {
+                        Text(
+                            text = "Message Templates",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${templates.size} available • Personalized variables supported",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
                     Text(
-                        text = "Message Templates",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${templates.size} available • Personalized variables supported",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "${templates.size} templates available • Variables supported",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -215,7 +223,8 @@ fun TemplateLibraryScreen(
             if (filteredTemplates.isEmpty()) {
                 val isFilterActive = searchQuery.isNotBlank() || selectedCategoryFilter != "ALL"
                 EmptyStateView(
-                    icon = Icons.Default.Description,
+                    illustrationRes = if (isFilterActive) null else R.drawable.ic_empty_templates,
+                    icon = if (isFilterActive) Icons.Default.SearchOff else Icons.Default.Description,
                     title = if (isFilterActive) "No matching templates" else "No templates created yet",
                     description = if (isFilterActive) {
                         "Try a different search word or select another category."
