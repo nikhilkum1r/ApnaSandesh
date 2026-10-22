@@ -3,6 +3,7 @@ package com.localreach.bizsms.feature.dashboard
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,11 +22,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.localreach.bizsms.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -121,35 +125,26 @@ fun OnboardingScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // App Identity Badge
-            Box(
+            // App Identity Badge - TextFlow Logo
+            Image(
+                painter = painterResource(id = R.drawable.textflow_logo),
+                contentDescription = "TextFlow Logo",
                 modifier = Modifier
-                    .size(72.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(20.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Chat,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(38.dp)
-                )
-            }
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(22.dp))
+            )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Text(
-                text = "Welcome to LocalReach SMS",
+                text = "Welcome to TextFlow",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = "Communicate directly with your existing customers using your own phone and SIM card. 100% private, offline, and subscription-free.",
@@ -159,7 +154,25 @@ fun OnboardingScreen(
                 lineHeight = 22.sp
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Widescreen Light Hero Banner
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.textflow_hero_banner),
+                    contentDescription = "TextFlow App Preview",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(170.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Principles Card
             Card(
