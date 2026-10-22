@@ -1,0 +1,17 @@
+{
+  "name": "ApnaSandesh — Aapka Number, Aapke Customers.",
+  "short_name": "ApnaSandesh",
+  "description": "Send personalized business SMS campaigns directly from your Android phone using your SIM card. 100% offline, zero cloud subscriptions, zero data leaks.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "48x48 72x72 96x96 128x128 256x256 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

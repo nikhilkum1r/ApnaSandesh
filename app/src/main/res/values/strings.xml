@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TextFlow Business SMS</string>
+    <string name="app_name">ApnaSandesh</string>
+    <string name="app_tagline">Aapka Number, Aapke Customers.</string>
 </resources>

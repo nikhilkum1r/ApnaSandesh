@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — ApnaSandesh | TruStoryX Digital</title>
+    <meta name="description" content="Official Google Play Store Privacy Policy for ApnaSandesh. 100% on-device business SMS, zero internet permissions, zero cloud servers, and complete data sovereignty.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b111e;
+            --surface-color: #131c2e;
+            --surface-card: #18233a;
+            --surface-border: #23334d;
+            --primary-accent: #0084ff;
+            --primary-glow: rgba(0, 132, 255, 0.15);
+            --success-color: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning-color: #f59e0b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --text-heading: #ffffff;
+            --code-bg: #0e1524;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.75;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 20px;
+            padding: 52px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 16px 12px; }
+            .container { padding: 24px 20px; border-radius: 14px; }
+        }
+
+        .header {
+            margin-bottom: 32px;
+            padding-bottom: 28px;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--primary-glow);
+            color: var(--primary-accent);
+            border: 1px solid rgba(0, 132, 255, 0.3);
+            border-radius: 9999px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success {
+            background: var(--success-bg);
+            color: var(--success-color);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        h1 {
+            font-size: 34px;
+            font-weight: 800;
+            color: var(--text-heading);
+            margin-bottom: 12px;
+            line-height: 1.25;
+            letter-spacing: -0.5px;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 18px;
+            font-size: 13px;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--surface-border);
+        }
+
+        .meta-item strong {
+            color: var(--text-main);
+        }
+
+        .highlight-box {
+            background: var(--success-bg);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: 14px;
+            padding: 24px;
+            margin: 28px 0;
+            color: #d1fae5;
+        }
+
+        .highlight-box h3 {
+            color: var(--success-color);
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toc-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin: 28px 0;
+        }
+
+        .toc-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--primary-accent);
+            margin-bottom: 12px;
+        }
+
+        .toc-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 8px 16px;
+            list-style: none;
+            font-size: 13px;
+        }
+
+        .toc-list a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+
+        .toc-list a:hover {
+            color: var(--primary-accent);
+            text-decoration: underline;
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-heading);
+            margin-top: 42px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-top: 24px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text-main);
+        }
+
+        ul {
+            margin-left: 22px;
+            margin-bottom: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            border: 1px solid var(--surface-border);
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #38bdf8;
+        }
+
+        .permission-card {
+            background: var(--surface-card);
+            border: 1px solid var(--surface-border);
+            border-radius: 14px;
+            padding: 22px;
+            margin-bottom: 18px;
+            transition: border-color 0.2s ease;
+        }
+
+        .permission-card:hover {
+            border-color: rgba(0, 132, 255, 0.4);
+        }
+
+        .permission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .permission-name {
+            font-weight: 700;
+            color: var(--primary-accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+        }
+
+        .permission-tag {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+        }
+
+        .permission-tag.optional {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success-color);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin: 24px 0;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.4);
+            color: var(--text-heading);
+            padding: 14px 16px;
+            font-weight: 700;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--surface-border);
+            color: var(--text-main);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) td {
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        .deletion-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .step-card {
+            background: var(--surface-card);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .step-num {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            border-radius: 50%;
+            background: var(--primary-accent);
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .contact-box {
+            background: rgba(0, 132, 255, 0.05);
+            border: 1px solid rgba(0, 132, 255, 0.25);
+            border-radius: 14px;
+            padding: 24px;
+            margin-top: 32px;
+        }
+
+        .footer {
+            margin-top: 52px;
+            padding-top: 24px;
+            border-top: 1px solid var(--surface-border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        a {
+            color: var(--primary-accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="badge-row">
+                <span class="badge">Google Play Store Compliant</span>
+                <span class="badge badge-success">100% Offline & On-Device</span>
+                <span class="badge">Zero Network Transmission</span>
+            </div>
+            <h1>Privacy Policy — ApnaSandesh</h1>
+            <p style="color: var(--text-muted); font-size: 15px;">
+                Official privacy guidelines, permission specifications, and Data Safety disclosures for the ApnaSandesh Android business application.
+            </p>
+
+            <div class="meta-grid">
+                <div class="meta-item"><strong>Application Name:</strong> ApnaSandesh</div>
+                <div class="meta-item"><strong>Package ID:</strong> <code>com.apnasandesh.app</code></div>
+                <div class="meta-item"><strong>Developer Entity:</strong> Trustoryx Digital</div>
+                <div class="meta-item"><strong>Effective Date:</strong> October 22, 2026</div>
+                <div class="meta-item"><strong>Privacy Officer:</strong> <a href="mailto:privacy@trustoryx.digital">privacy@trustoryx.digital</a></div>
+                <div class="meta-item"><strong>Official Web:</strong> <a href="https://trustoryx.digital" target="_blank" rel="noopener">trustoryx.digital</a></div>
+            </div>
+        </div>
+
+        <!-- Highlight Callout -->
+        <div class="highlight-box">
+            <h3>🔒 Core Architectural Privacy Guarantee</h3>
+            <p style="margin-bottom: 0;">
+                ApnaSandesh is engineered with an uncompromising <strong>zero-data-collection architecture</strong>. The application does <strong>not</strong> declare or possess the Android <code>android.permission.INTERNET</code> permission. The operating system actively prevents the application from initiating network connections, creating remote sockets, or transmitting data. All client contacts, message contents, templates, and dispatch logs remain exclusively on your physical hardware.
+            </p>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="toc-box">
+            <div class="toc-title">Table of Contents</div>
+            <div class="toc-list">
+                <a href="#zero-data">1. Zero-Data-Collection Architecture</a>
+                <a href="#permissions">2. Android Permissions Specification</a>
+                <a href="#third-parties">3. Third-Party Services & Trackers</a>
+                <a href="#data-retention">4. Data Retention & Deletion Policy</a>
+                <a href="#telecom">5. Opt-Out & Telecom Compliance</a>
+                <a href="#children">6. Children's Privacy (COPPA)</a>
+                <a href="#legal-rights">7. Global Privacy Regulations</a>
+                <a href="#data-safety">8. Google Play Data Safety Answers</a>
+                <a href="#contact">9. Developer & Support Contact</a>
+            </div>
+        </div>
+
+        <!-- Section 1 -->
+        <h2 id="zero-data">1. Zero-Data-Collection Architecture (No Cloud Servers)</h2>
+        <p>Unlike cloud-based CRM and bulk messaging platforms that store your address book on remote servers:</p>
+        <ul>
+            <li><strong>No Cloud Servers:</strong> Trustoryx Digital does not host or operate remote databases, API gateways, or telemetry collection servers that receive or process your business data.</li>
+            <li><strong>Absence of Internet Permission:</strong> The application manifest completely omits <code>android.permission.INTERNET</code>. The Android OS kernel guarantees that no packet can be transmitted off your phone.</li>
+            <li><strong>App-Private SQLite Sandbox:</strong> All business profiles, client records, custom tags, and campaign dispatches reside in the sandboxed local SQLite database (<code>/data/data/com.apnasandesh.app/databases/biz_sms_database</code>), inaccessible to other apps.</li>
+            <li><strong>Excluded from Cloud Backups:</strong> The database is explicitly excluded from unencrypted Google Drive device backups via Android's <code>data_extraction_rules.xml</code> and <code>backup_rules.xml</code>.</li>
+        </ul>
+
+        <!-- Section 2 -->
+        <h2 id="permissions">2. Android Operating System Permissions Specification</h2>
+        <p>In strict accordance with the Google Play Sensitive Permissions Policy, every runtime permission requested by ApnaSandesh is documented below with its exact purpose and zero-permission fallback:</p>
+
+        <!-- Permission: SEND_SMS -->
+        <div class="permission-card">
+            <div class="permission-header">
+                <span class="permission-name">android.permission.SEND_SMS</span>
+                <span class="permission-tag optional">Optional / Runtime</span>
+            </div>
+            <p><strong>Core Functionality:</strong> Dispatches sequential SMS campaign messages directly via the phone's cellular SIM card using Android's native <code>SmsManager</code> when the user enables "Direct SIM Sending".</p>
+            <p><strong>Restrictions & User Control:</strong></p>
+            <ul>
+                <li>Messages are sent <em>only</em> upon explicit user initiation for a campaign or client message.</li>
+                <li>Zero silent, covert, background, or premium SMS messages are ever initiated.</li>
+                <li>Live interactive preview calculates exact character counts, GSM-7 / Unicode encoding, and SMS segments before dispatch.</li>
+            </ul>
+            <p><strong>Zero-Permission Alternative:</strong> When Direct SIM mode is disabled, the app uses the Android system SMS composer (<code>COMPOSER_HANDOFF</code>) to draft messages in your default SMS app with <strong>zero</strong> SMS permissions.</p>
+            <p><strong>No Inbox Access:</strong> We do <strong>not</strong> declare <code>READ_SMS</code> or <code>RECEIVE_SMS</code>. The app has zero access to your incoming text messages, personal conversations, or OTP codes.</p>
+        </div>
+
+        <!-- Permission: READ_PHONE_STATE -->
+        <div class="permission-card">
+            <div class="permission-header">
+                <span class="permission-name">android.permission.READ_PHONE_STATE</span>
+                <span class="permission-tag optional">Optional / Runtime</span>
+            </div>
+            <p><strong>Purpose:</strong> On Dual-SIM devices, queries active SIM subscription IDs via <code>SubscriptionManager</code> so the business owner can select which cellular subscription (e.g., SIM 1 vs SIM 2) to use for sending.</p>
+            <p><strong>Strict Non-Collection:</strong> We do <strong>not</strong> collect or read IMEI, IMSI, device phone numbers, call state, call logs (<code>READ_CALL_LOG</code> is not declared), or cellular traffic metadata.</p>
+        </div>
+
+        <!-- Permission: READ_CONTACTS -->
+        <div class="permission-card">
+            <div class="permission-header">
+                <span class="permission-name">android.permission.READ_CONTACTS</span>
+                <span class="permission-tag optional">Optional / Runtime</span>
+            </div>
+            <p><strong>Purpose:</strong> Used only when the user taps "Browse All Device Contacts" to select and import client records from the local address book into the local customer database.</p>
+            <p><strong>Data Handling:</strong> Contact records are loaded into memory and written directly to the local SQLite database. They are <strong>never</strong> transmitted over the internet or shared with third parties.</p>
+            <p><strong>Zero-Permission Alternatives:</strong> Users can import contacts one-by-one using the Android system contact picker (<code>PickContact</code>) or via CSV spreadsheet files without granting any contact permissions.</p>
+        </div>
+
+        <!-- Permission: POST_NOTIFICATIONS -->
+        <div class="permission-card">
+            <div class="permission-header">
+                <span class="permission-name">android.permission.POST_NOTIFICATIONS (Android 13+)</span>
+                <span class="permission-tag optional">Optional / Runtime</span>
+            </div>
+            <p><strong>Purpose:</strong> Displays active campaign dispatch progress (e.g., "Sending 12/50...") with interactive Pause and Stop controls in the notification drawer.</p>
+            <p><strong>Non-Marketing:</strong> No promotional push messages or remote notifications (e.g., FCM) exist in the application.</p>
+        </div>
+
+        <!-- Permission: FOREGROUND_SERVICE -->
+        <div class="permission-card">
+            <div class="permission-header">
+                <span class="permission-name">FOREGROUND_SERVICE & SPECIAL_USE (Android 14+)</span>
+                <span class="permission-tag">Foreground Policy</span>
+            </div>
+            <p><strong>Declared Subtype:</strong> <code>Autonomous campaign SMS message dispatching and progress tracking</code></p>
+            <p><strong>Purpose:</strong> Keeps active sequential cellular dispatch jobs uninterrupted by Android Doze mode or aggressive battery management when the user locks their screen or switches apps during a multi-message batch.</p>
+        </div>
+
+        <!-- Section 3 -->
+        <h2 id="third-parties">3. Third-Party Services, SDKs & Trackers</h2>
+        <p>To preserve complete data confidentiality:</p>
+        <ul>
+            <li><strong>Zero Analytics SDKs:</strong> No Google Analytics, Firebase Analytics, Flurry, Adjust, or Mixpanel.</li>
+            <li><strong>Zero Advertising SDKs:</strong> No AdMob, Unity Ads, Meta Audience Network, or monetization SDKs.</li>
+            <li><strong>Zero Social Logins:</strong> No Facebook, Google, or OAuth logins.</li>
+            <li><strong>Zero Crash Telemetry Over Network:</strong> No external crash-reporting libraries. Internal diagnostics are logged locally in redacted memory via <code>PrivacySafeLogger</code> with all phone numbers and message content scrubbed.</li>
+        </ul>
+
+        <!-- Section 4 -->
+        <h2 id="data-retention">4. Data Retention & Mandatory Data Deletion Policy</h2>
+        <p>In accordance with Google Play's User Data and Account Deletion guidelines, users maintain complete and unconditional control over their data:</p>
+
+        <h3>Data Retention</h3>
+        <p>All client profiles, message drafts, delivery audit receipts, and suppression entries remain on your device for as long as you keep the application installed, or until you choose to modify or purge them.</p>
+
+        <h3>How to Delete Your Data (Google Play Requirement)</h3>
+        <p>Because ApnaSandesh maintains no remote servers or online user accounts, data deletion is 100% self-serve, instantaneous, and complete:</p>
+
+        <div class="deletion-steps">
+            <div class="step-card">
+                <div class="step-num">1</div>
+                <h4 style="margin-bottom: 6px; font-size: 15px;">In-App Complete Wipe</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 0;">
+                    Go to <strong>Settings → Danger Zone → Permanently Delete All Data</strong>. This immediately truncates and recreates all database tables on your phone.
+                </p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">2</div>
+                <h4 style="margin-bottom: 6px; font-size: 15px;">Android Settings Wipe</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 0;">
+                    Go to <strong>Settings → Apps → ApnaSandesh → Storage → Clear Storage</strong> to immediately wipe all private application sandbox data.
+                </p>
+            </div>
+            <div class="step-card">
+                <div class="step-num">3</div>
+                <h4 style="margin-bottom: 6px; font-size: 15px;">App Uninstallation</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 0;">
+                    Uninstalling the application causes the Android operating system to immediately and irreversibly delete all internal database files and preferences.
+                </p>
+            </div>
+        </div>
+
+        <!-- Section 5 -->
+        <h2 id="telecom">5. Customer Privacy, Opt-Outs & Telecom Compliance</h2>
+        <p>The application provides small business owners with built-in compliance safeguards:</p>
+        <ul>
+            <li><strong>On-Device Suppression List:</strong> Clients who text "STOP" or request opt-out are recorded locally as suppressed. The app automatically blocks sending to these numbers in all future dispatches.</li>
+            <li><strong>Commercial Hours Guidance:</strong> Visual advisories align campaigns with commercial transmission rules (09:00 to 21:00 local time) in compliance with TRAI (India) and TCPA (USA).</li>
+            <li><strong>Local Audit Receipts:</strong> Timestamped delivery receipts (Sent, Delivered, Failed) are retained strictly in the local SQLite database for compliance verification.</li>
+        </ul>
+
+        <!-- Section 6 -->
+        <h2 id="children">6. Children's Privacy (COPPA & Google Play Families Policy)</h2>
+        <p>ApnaSandesh is a commercial utility designed exclusively for business operators, merchants, and independent professionals aged 18 and older. The application is not directed to children under 13 (or under 16 in the European Economic Area). We do not knowingly collect, process, or solicit personal data from children.</p>
+
+        <!-- Section 7 -->
+        <h2 id="legal-rights">7. Compliance with Global Privacy Regulations</h2>
+        <ul>
+            <li><strong>GDPR (European Union & UK):</strong> Strict adherence to Data Minimization, Storage Limitation, and Privacy by Design. Users exercise immediate Right of Access and Right of Erasure directly on-device.</li>
+            <li><strong>CCPA / CPRA (California, USA):</strong> We do not sell, rent, disclose, or share personal information with third parties.</li>
+            <li><strong>Digital Personal Data Protection Act (DPDP Act, India):</strong> Complete localization on personal hardware; zero cloud storage.</li>
+        </ul>
+
+        <!-- Section 8 -->
+        <h2 id="data-safety">8. Google Play Data Safety Section Mapping</h2>
+        <p>This table reflects the exact declarations submitted to the Google Play Console Data Safety questionnaire:</p>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Google Play Question / Data Type</th>
+                        <th>Declaration</th>
+                        <th>Technical Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Does your app collect or share user data?</strong></td>
+                        <td><strong style="color: var(--success-color);">NO</strong></td>
+                        <td>Zero data is transferred off the physical device.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Is data encrypted in transit?</strong></td>
+                        <td><strong>Not Applicable</strong></td>
+                        <td>No network transfer (zero internet permissions).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Can users request data deletion?</strong></td>
+                        <td><strong style="color: var(--success-color);">YES</strong></td>
+                        <td>Direct self-service via in-app wipe or uninstallation.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Personal Info (Name, Phone Number)</strong></td>
+                        <td>Not Collected</td>
+                        <td>Stored strictly in on-device SQLite database.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Messages (SMS text)</strong></td>
+                        <td>Not Collected</td>
+                        <td>Sent via cellular SIM; zero cloud transmission.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contacts</strong></td>
+                        <td>Not Collected</td>
+                        <td>Read locally for import; zero cloud sync.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Location Data</strong></td>
+                        <td>Not Collected</td>
+                        <td>Zero location permissions requested.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Financial Info / Purchases</strong></td>
+                        <td>Not Collected</td>
+                        <td>No payment processing or subscriptions.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Device or Other IDs</strong></td>
+                        <td>Not Collected</td>
+                        <td>No IMEI, Android ID, or Advertising ID accessed.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section 9 -->
+        <h2 id="contact">9. Developer Identification & Privacy Inquiries</h2>
+        <div class="contact-box">
+            <h3 style="margin-top: 0; color: var(--primary-accent);">Trustoryx Digital — Data Protection & Privacy Office</h3>
+            <p>If you have any questions, regulatory inquiries, or verification requests regarding this Privacy Policy:</p>
+            <p>
+                <strong>Privacy Officer Email:</strong> <a href="mailto:privacy@trustoryx.digital">privacy@trustoryx.digital</a><br>
+                <strong>Customer Support Desk:</strong> <a href="mailto:support@trustoryx.digital">support@trustoryx.digital</a><br>
+                <strong>Corporate Portal:</strong> <a href="https://trustoryx.digital" target="_blank" rel="noopener">https://trustoryx.digital</a><br>
+                <strong>Product Website:</strong> <a href="https://apnasandesh.trustoryx.digital" target="_blank" rel="noopener">https://apnasandesh.trustoryx.digital</a>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            &copy; 2026 TruStoryX Digital. All rights reserved. &bull; ApnaSandesh Business SMS Suite
+        </div>
+    </div>
+</body>
+</html>

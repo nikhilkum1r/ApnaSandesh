@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.localreach.bizsms"
+    namespace = "com.apnasandesh.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.localreach.bizsms"
+        applicationId = "com.apnasandesh.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -24,6 +24,15 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("apnasandesh-release.jks")
+            storePassword = "textflow2026"
+            keyAlias = "textflow"
+            keyPassword = "textflow2026"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -32,7 +41,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             isMinifyEnabled = false

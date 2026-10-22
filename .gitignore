@@ -11,4 +11,8 @@
 *.apk
 *.aab
 .kotlin/
-.kotlin/
+node_modules/
+.next/
+dist/
+out/
+astro_site_backup/

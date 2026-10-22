@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 48 24% 97.5%; /* #FAF9F6 */
+    --foreground: 60 3% 8%; /* #141413 */
+    --card: 0 0% 100%;
+    --card-foreground: 60 3% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 60 3% 8%;
+    --primary: 19 100% 50%; /* #FF4F00 International Orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 45 15% 94%; /* #F4F3EF */
+    --secondary-foreground: 60 3% 8%;
+    --muted: 45 12% 92%;
+    --muted-foreground: 45 3% 41%; /* #6B6A65 */
+    --accent: 19 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 45 14% 88%; /* #E6E4DD */
+    --input: 45 14% 88%;
+    --ring: 19 100% 50%;
+    --radius: 4px;
+  }
+
+  .dark {
+    --background: 60 3% 7%; /* #111110 Deep matte charcoal */
+    --foreground: 45 15% 96%;
+    --card: 60 3% 9.5%; /* #181816 */
+    --card-foreground: 45 15% 96%;
+    --popover: 60 3% 9.5%;
+    --popover-foreground: 45 15% 96%;
+    --primary: 19 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 60 3% 14%;
+    --secondary-foreground: 45 15% 96%;
+    --muted: 60 3% 14%;
+    --muted-foreground: 45 4% 54%;
+    --accent: 19 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 60 4% 18%; /* #2C2B28 */
+    --input: 60 4% 18%;
+    --ring: 19 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+    background-color: #FAF9F6;
+  }
+
+  body {
+    background-color: #FAF9F6;
+    color: #141413;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.035em;
+    line-height: 1.12;
+    color: #141413;
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  code, pre, kbd, samp {
+    font-family: 'JetBrains Mono', monospace;
+    font-feature-settings: "zero", "calt";
+  }
+}
+
+/* Crisp button & link transitions - 150ms cubic-bezier */
+button, a {
+  transition: all 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Architectural borders */
+.hairline-border {
+  border: 1px solid #E6E4DD;
+}
+
+.hairline-b {
+  border-bottom: 1px solid #E6E4DD;
+}
+
+.hairline-t {
+  border-top: 1px solid #E6E4DD;
+}
+
+.hairline-r {
+  border-right: 1px solid #E6E4DD;
+}
+
+.hairline-l {
+  border-left: 1px solid #E6E4DD;
+}
+
+/* Solid architectural surfaces */
+.surface-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E6E4DD;
+  border-radius: 4px;
+}
+
+.surface-muted {
+  background-color: #F4F3EF;
+  border: 1px solid #E6E4DD;
+  border-radius: 4px;
+}
+
+.surface-dark {
+  background-color: #111110;
+  color: #FAF9F6;
+  border: 1px solid #2C2B28;
+  border-radius: 4px;
+}
+
+/* Selection */
+::selection {
+  background-color: #FF4F00;
+  color: #FFFFFF;
+}
