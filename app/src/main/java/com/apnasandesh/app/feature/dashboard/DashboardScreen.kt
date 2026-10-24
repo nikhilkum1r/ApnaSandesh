@@ -38,6 +38,7 @@ import com.apnasandesh.app.core.database.AppSettingsEntity
 import com.apnasandesh.app.core.database.BusinessProfileEntity
 import com.apnasandesh.app.core.database.CampaignDao
 import com.apnasandesh.app.core.database.CustomerDao
+import com.apnasandesh.app.core.database.CustomerEntity
 import com.apnasandesh.app.core.database.ProfileAndSettingsDao
 import com.apnasandesh.app.core.ui.theme.*
 import com.apnasandesh.app.feature.common.MetricStatCard
@@ -96,7 +97,9 @@ class DashboardViewModel @Inject constructor(
         website: String = "",
         currencySymbol: String = "₹",
         preferredLanguage: String = "English",
-        brandTone: String = "Professional"
+        brandTone: String = "Professional",
+        upiId: String = "",
+        googleReviewLink: String = ""
     ) {
         viewModelScope.launch {
             profileDao.upsertBusinessProfile(
@@ -113,6 +116,8 @@ class DashboardViewModel @Inject constructor(
                     currencySymbol = currencySymbol.trim().ifEmpty { "₹" },
                     preferredLanguage = preferredLanguage.trim().ifEmpty { "English" },
                     brandTone = brandTone.trim().ifEmpty { "Professional" },
+                    upiId = upiId.trim(),
+                    googleReviewLink = googleReviewLink.trim(),
                     updatedAtEpochMillis = System.currentTimeMillis()
                 )
             )
@@ -307,7 +312,7 @@ private fun PrincipleRow(
 fun BusinessProfileScreen(
     profile: BusinessProfileEntity?,
     onSaveProfile: (String, String, String, String, String, String, String) -> Unit,
-    onSaveProfileExtended: ((String, String, String, String, String, String, String, String, String, String, String) -> Unit)? = null,
+    onSaveProfileExtended: ((String, String, String, String, String, String, String, String, String, String, String, String, String) -> Unit)? = null,
     onBack: (() -> Unit)? = null
 ) {
     var businessName by remember(profile) { mutableStateOf(profile?.businessName ?: "") }
@@ -316,11 +321,13 @@ fun BusinessProfileScreen(
     var phone by remember(profile) { mutableStateOf(profile?.communicationPhone ?: "") }
     var address by remember(profile) { mutableStateOf(profile?.businessAddress ?: "") }
     var callingCode by remember(profile) { mutableStateOf(profile?.defaultCountryCallingCode ?: "+91") }
-    var signature by remember(profile) { mutableStateOf(profile?.defaultMessageSignature ?: "- My Shop") }
+    var signature by remember(profile) { mutableStateOf(profile?.defaultMessageSignature ?: "") }
     var website by remember(profile) { mutableStateOf(profile?.website ?: "") }
     var currencySymbol by remember(profile) { mutableStateOf(profile?.currencySymbol ?: "₹") }
     var preferredLanguage by remember(profile) { mutableStateOf(profile?.preferredLanguage ?: "English") }
     var brandTone by remember(profile) { mutableStateOf(profile?.brandTone ?: "Professional") }
+    var upiId by remember(profile) { mutableStateOf(profile?.upiId ?: "") }
+    var googleReviewLink by remember(profile) { mutableStateOf(profile?.googleReviewLink ?: "") }
 
     var showSavedSnackbar by remember { mutableStateOf(false) }
 
@@ -384,7 +391,7 @@ fun BusinessProfileScreen(
                     value = businessName,
                     onValueChange = { businessName = it },
                     label = { Text("Business Name *") },
-                    placeholder = { Text("e.g. Ramesh General Stores") },
+                    placeholder = { Text("Enter business name") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -393,7 +400,7 @@ fun BusinessProfileScreen(
                     value = ownerName,
                     onValueChange = { ownerName = it },
                     label = { Text("Owner / Manager Display Name *") },
-                    placeholder = { Text("e.g. Ramesh Kumar") },
+                    placeholder = { Text("Enter owner / manager name") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -495,6 +502,55 @@ fun BusinessProfileScreen(
             }
         }
 
+        // UPI & Reviews Card
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Payment,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "UPI Payments & Google Reviews",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                OutlinedTextField(
+                    value = upiId,
+                    onValueChange = { upiId = it },
+                    label = { Text("Shop UPI ID / VPA") },
+                    placeholder = { Text("e.g. yourstore@okhdfcbank or 9876543210@paytm") },
+                    supportingText = { Text("Used in {{upi_pay_link}} for instant customer payments via GPay, PhonePe, Paytm.") },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = googleReviewLink,
+                    onValueChange = { googleReviewLink = it },
+                    label = { Text("Google Maps Review Link") },
+                    placeholder = { Text("e.g. https://g.page/r/your-shop/review") },
+                    supportingText = { Text("Used in {{google_review_link}} to collect 5-star customer ratings.") },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
         // Signature Section
         Card(
             shape = RoundedCornerShape(14.dp),
@@ -517,7 +573,7 @@ fun BusinessProfileScreen(
                     value = signature,
                     onValueChange = { signature = it },
                     label = { Text("Default Message Signature") },
-                    placeholder = { Text("- Ramesh Stores, Bangalore") },
+                    placeholder = { Text("e.g. - Your Business") },
                     supportingText = { Text("Appended automatically when {{signature}} is enabled in campaigns.") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -553,7 +609,7 @@ fun BusinessProfileScreen(
         Button(
             onClick = {
                 if (onSaveProfileExtended != null) {
-                    onSaveProfileExtended(businessName, ownerName, category, phone, address, callingCode, signature, website, currencySymbol, preferredLanguage, brandTone)
+                    onSaveProfileExtended(businessName, ownerName, category, phone, address, callingCode, signature, website, currencySymbol, preferredLanguage, brandTone, upiId, googleReviewLink)
                 } else {
                     onSaveProfile(businessName, ownerName, category, phone, address, callingCode, signature)
                 }
@@ -597,6 +653,7 @@ fun DashboardScreen(
     suppressedCount: Int,
     draftsCount: Int,
     recentCampaignsCount: Int,
+    customers: List<CustomerEntity> = emptyList(),
     onNavigateToCustomers: () -> Unit,
     onNavigateToImport: () -> Unit,
     onNavigateToCampaigns: () -> Unit,
@@ -779,6 +836,170 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+
+        // "Aaj Ka Kaam" Daily Business Action Hub
+        val pendingDueCustomers = remember(customers) {
+            customers.filter {
+                it.lastOrderAmount.isNotBlank() && (it.lastOrderAmount.filter { c -> c.isDigit() || c == '.' }.toDoubleOrNull() ?: 0.0) > 0.0
+            }
+        }
+        val totalDueAmount = remember(pendingDueCustomers) {
+            pendingDueCustomers.sumOf { it.lastOrderAmount.filter { c -> c.isDigit() || c == '.' }.toDoubleOrNull() ?: 0.0 }
+        }
+        val appointmentCustomers = remember(customers) {
+            customers.filter { it.lastAppointmentDate.isNotBlank() }
+        }
+
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = BrandAmberTertiaryLight.copy(alpha = 0.15f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Today,
+                                    contentDescription = null,
+                                    tint = BrandAmberTertiaryLight,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Aaj Ka Kaam (Daily Actions)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Automated reminders & customer follow-ups",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Row of Action Pills: Payment Dues & Appointments
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Due Payments Pill
+                    Surface(
+                        color = if (pendingDueCustomers.isNotEmpty()) BrandAmberTertiaryLight.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onNavigateToCampaigns() }
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.AccountBalanceWallet,
+                                    contentDescription = null,
+                                    tint = BrandAmberTertiaryLight,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Pending Dues",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${profile?.currencySymbol ?: "₹"}${totalDueAmount.toInt()}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandAmberTertiaryLight
+                            )
+                            Text(
+                                text = "${pendingDueCustomers.size} customer(s) due",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Appointments Pill
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onNavigateToCustomers() }
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.CalendarMonth,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Appointments",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${appointmentCustomers.size}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Visits / bookings",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                if (pendingDueCustomers.isNotEmpty()) {
+                    Button(
+                        onClick = onNavigateToCampaigns,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandAmberTertiaryLight,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Send UPI Due Reminders (${pendingDueCustomers.size})",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

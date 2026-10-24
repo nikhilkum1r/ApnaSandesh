@@ -34,17 +34,29 @@ class ApnaSandeshApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         appScope.launch {
-            databaseSeeder.ensureSeeded()
-            // Recovery after restart: any campaigns left in RUNNING/IN_PROGRESS are safely paused
-            campaignDao.reconcileRunningCampaignsToPaused()
+            runCatching {
+                databaseSeeder.ensureSeeded()
+            }.onFailure { e ->
+                android.util.Log.e("ApnaSandeshApp", "Failed during database seeding", e)
+            }
+            runCatching {
+                // Recovery after restart: any campaigns left in RUNNING/IN_PROGRESS are safely paused
+                campaignDao.reconcileRunningCampaignsToPaused()
+            }.onFailure { e ->
+                android.util.Log.e("ApnaSandeshApp", "Failed during campaign reconciliation", e)
+            }
         }
-        val reconciliationRequest = PeriodicWorkRequestBuilder<CampaignReconciliationWorker>(
-            6, TimeUnit.HOURS
-        ).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "campaign_stale_submission_reconciliation",
-            ExistingPeriodicWorkPolicy.KEEP,
-            reconciliationRequest
-        )
+        runCatching {
+            val reconciliationRequest = PeriodicWorkRequestBuilder<CampaignReconciliationWorker>(
+                6, TimeUnit.HOURS
+            ).build()
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "campaign_stale_submission_reconciliation",
+                ExistingPeriodicWorkPolicy.KEEP,
+                reconciliationRequest
+            )
+        }.onFailure { e ->
+            android.util.Log.e("ApnaSandeshApp", "Failed scheduling reconciliation worker", e)
+        }
     }
 }

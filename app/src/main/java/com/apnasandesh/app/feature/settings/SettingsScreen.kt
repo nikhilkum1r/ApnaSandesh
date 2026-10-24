@@ -287,11 +287,14 @@ fun SettingsScreen(
                     }
                 }
 
+                val isDirectSimDeclared = remember { viewModel.policyGate.isDirectSmsPermissionDeclared() }
+                var showPlayPolicyNoticeDialog by remember { mutableStateOf(false) }
+
                 // Option 2: Direct SIM Radio
                 Surface(
-                    color = if (settings?.preferredTransport == "DIRECT_SIM") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    color = if (isDirectSimDeclared && settings?.preferredTransport == "DIRECT_SIM") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, if (settings?.preferredTransport == "DIRECT_SIM") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                    border = BorderStroke(1.dp, if (isDirectSimDeclared && settings?.preferredTransport == "DIRECT_SIM") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -299,25 +302,57 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.Top
                     ) {
                         RadioButton(
-                            selected = settings?.preferredTransport == "DIRECT_SIM",
+                            selected = isDirectSimDeclared && settings?.preferredTransport == "DIRECT_SIM",
                             onClick = {
-                                if (settings?.directSimPolicyAcknowledged == true) {
-                                    viewModel.updateTransportMode("DIRECT_SIM")
+                                if (isDirectSimDeclared) {
+                                    if (settings?.directSimPolicyAcknowledged == true) {
+                                        viewModel.updateTransportMode("DIRECT_SIM")
+                                        if (!viewModel.policyGate.hasDirectSmsRuntimePermissions()) {
+                                            permissionLauncher.launch(
+                                                arrayOf(
+                                                    Manifest.permission.SEND_SMS,
+                                                    Manifest.permission.READ_PHONE_STATE
+                                                )
+                                            )
+                                        }
+                                    } else {
+                                        showDirectSimDisclosureDialog = true
+                                    }
                                 } else {
-                                    showDirectSimDisclosureDialog = true
+                                    showPlayPolicyNoticeDialog = true
                                 }
                             }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text(
-                                text = "Direct SIM Dispatch",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Direct SIM Dispatch",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                if (!isDirectSimDeclared) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "Website Edition",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Automated background dispatch (requires SMS permissions).",
+                                text = if (isDirectSimDeclared) "Automated background dispatch (requires SMS permissions)." else "Automated background dispatch (requires Direct APK from official website).",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -325,8 +360,58 @@ fun SettingsScreen(
                     }
                 }
 
+                if (!isDirectSimDeclared) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Google Play Compliant Release: Uses Android SMS Composer. Automated Direct SIM dispatch is available in the Direct APK on our website.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                if (showPlayPolicyNoticeDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showPlayPolicyNoticeDialog = false },
+                        title = {
+                            Text(
+                                text = "Google Play Policy Compliance",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = "To strictly comply with Google Play's SMS and Call Log policy, this edition of ApnaSandesh exclusively uses the Android SMS Composer mode (ACTION_SENDTO) with zero sensitive permissions.\n\nAutomated sequential Direct SIM dispatch is available in the Direct APK edition available for download from our official website (apnasandesh.trustoryx.digital).",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showPlayPolicyNoticeDialog = false }) {
+                                Text("Understood", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    )
+                }
+
                 // Direct SIM controls when acknowledged
-                if (settings?.directSimPolicyAcknowledged == true) {
+                if (isDirectSimDeclared && settings?.directSimPolicyAcknowledged == true) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
                     Row(
@@ -707,6 +792,13 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.acknowledgeDirectSimPolicy(true)
                         viewModel.updateTransportMode("DIRECT_SIM")
+                        viewModel.toggleDirectSimFeature(true)
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.SEND_SMS,
+                                Manifest.permission.READ_PHONE_STATE
+                            )
+                        )
                         showDirectSimDisclosureDialog = false
                     },
                     shape = RoundedCornerShape(8.dp)

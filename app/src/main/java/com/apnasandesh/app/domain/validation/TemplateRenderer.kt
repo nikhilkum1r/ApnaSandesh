@@ -19,43 +19,43 @@ class TemplateRenderer @Inject constructor() {
             TemplateVariable(
                 token = "{{customer_name}}",
                 displayName = "Full Name",
-                description = "Customer's full name (e.g. Aarav Sharma)",
-                sampleValue = "Aarav Sharma",
+                description = "Customer's full name",
+                sampleValue = "Customer Name",
                 group = "Customer"
             ),
             TemplateVariable(
                 token = "{{first_name}}",
                 displayName = "First Name",
-                description = "Customer's first name (e.g. Aarav)",
-                sampleValue = "Aarav",
+                description = "Customer's first name",
+                sampleValue = "Customer",
                 group = "Customer"
             ),
             TemplateVariable(
                 token = "{{last_name}}",
                 displayName = "Last Name",
-                description = "Customer's last name (e.g. Sharma)",
-                sampleValue = "Sharma",
+                description = "Customer's last name",
+                sampleValue = "Name",
                 group = "Customer"
             ),
             TemplateVariable(
                 token = "{{customer_phone}}",
                 displayName = "Customer Phone",
                 description = "Customer's phone number",
-                sampleValue = "+91 98765 43210",
+                sampleValue = "+91 98765 00000",
                 group = "Customer"
             ),
             TemplateVariable(
                 token = "{{customer_email}}",
                 displayName = "Customer Email",
                 description = "Customer's email address",
-                sampleValue = "aarav@example.com",
+                sampleValue = "customer@example.com",
                 group = "Customer"
             ),
             TemplateVariable(
                 token = "{{customer_company}}",
                 displayName = "Customer Company",
                 description = "Customer's company or workplace",
-                sampleValue = "Sharma Traders",
+                sampleValue = "Client Company",
                 group = "Customer"
             ),
 
@@ -64,14 +64,14 @@ class TemplateRenderer @Inject constructor() {
                 token = "{{business_name}}",
                 displayName = "Business Name",
                 description = "Registered name of your business",
-                sampleValue = "Apna General Store",
+                sampleValue = "Your Business",
                 group = "Business"
             ),
             TemplateVariable(
                 token = "{{owner_name}}",
                 displayName = "Owner Name",
                 description = "Owner or contact person display name",
-                sampleValue = "Shop Manager",
+                sampleValue = "Store Owner",
                 group = "Business"
             ),
             TemplateVariable(
@@ -85,28 +85,35 @@ class TemplateRenderer @Inject constructor() {
                 token = "{{business_address}}",
                 displayName = "Business Address",
                 description = "Store location or pickup address",
-                sampleValue = "Shop #4, Market Complex",
+                sampleValue = "Main Street",
                 group = "Business"
             ),
             TemplateVariable(
                 token = "{{business_website}}",
                 displayName = "Website",
                 description = "Store or business website URL",
-                sampleValue = "www.mybiz.com",
+                sampleValue = "www.example.com",
+                group = "Business"
+            ),
+            TemplateVariable(
+                token = "{{google_review_link}}",
+                displayName = "Google Review Link",
+                description = "Google Maps review link to collect 5-star customer ratings",
+                sampleValue = "https://g.page/r/your-shop/review",
                 group = "Business"
             ),
             TemplateVariable(
                 token = "{{business_signature}}",
                 displayName = "Business Signature",
                 description = "Default automated closing signature",
-                sampleValue = "- Apna General Store",
+                sampleValue = "- Your Business",
                 group = "Business"
             ),
             TemplateVariable(
                 token = "{{signature}}",
                 displayName = "Signature",
                 description = "Closing signature",
-                sampleValue = "- Apna General Store",
+                sampleValue = "- Your Business",
                 group = "Business"
             ),
 
@@ -197,6 +204,20 @@ class TemplateRenderer @Inject constructor() {
                 sampleValue = "https://pay.biz/pay",
                 group = "Orders"
             ),
+            TemplateVariable(
+                token = "{{upi_pay_link}}",
+                displayName = "UPI Pay Link",
+                description = "Instant 1-tap GPay / PhonePe / Paytm payment link",
+                sampleValue = "upi://pay?pa=shop@upi&pn=Store&am=1250&cu=INR",
+                group = "Orders"
+            ),
+            TemplateVariable(
+                token = "{{upi_id}}",
+                displayName = "UPI ID",
+                description = "Shop UPI VPA ID (e.g. name@okhdfcbank)",
+                sampleValue = "merchant@okhdfcbank",
+                group = "Orders"
+            ),
 
             // Appointments & Services
             TemplateVariable(
@@ -224,7 +245,7 @@ class TemplateRenderer @Inject constructor() {
                 token = "{{service_provider}}",
                 displayName = "Service Provider",
                 description = "Doctor, stylist, technician, or staff member",
-                sampleValue = "Dr. Sharma",
+                sampleValue = "Staff Specialist",
                 group = "Appointments"
             ),
             TemplateVariable(
@@ -392,12 +413,15 @@ class TemplateRenderer @Inject constructor() {
             "tags" -> customer.tagsCsv.trim()
 
             // Business
-            "business_name" -> profile.businessName.trim().ifEmpty { "Our Store" }
-            "owner_name" -> profile.ownerDisplayName.trim().ifEmpty { profile.businessName.trim().ifEmpty { "Store Manager" } }
+            "business_name" -> profile.businessName.trim().ifEmpty { "Your Business" }
+            "owner_name" -> profile.ownerDisplayName.trim().ifEmpty { profile.businessName.trim().ifEmpty { "Store Owner" } }
             "business_phone" -> profile.communicationPhone.trim()
             "business_address", "address" -> profile.businessAddress?.trim().orEmpty()
             "business_category", "category" -> profile.businessCategory.trim()
             "business_website" -> profile.website.trim()
+            "google_review_link" -> profile.googleReviewLink.trim().ifEmpty {
+                if (profile.website.isNotBlank()) "${profile.website.trim()}/review" else "https://g.page/review"
+            }
             "business_signature", "signature" -> profile.defaultMessageSignature.trim()
 
             // Sales & Products
@@ -422,6 +446,29 @@ class TemplateRenderer @Inject constructor() {
             "payment_due_date" -> getFormattedDateOffset(daysOffset = 5)
             "payment_status" -> "Pending"
             "payment_link" -> if (profile.website.isNotBlank()) "${profile.website.trim()}/pay" else "https://pay.biz/order"
+            "upi_id" -> profile.upiId.trim().ifEmpty { "merchant@upi" }
+            "upi_pay_link" -> {
+                val upi = profile.upiId.trim().ifEmpty {
+                    val rawDigits = profile.communicationPhone.filter { it.isDigit() }
+                    if (rawDigits.isNotBlank()) "$rawDigits@upi" else "merchant@upi"
+                }
+                val rawAmount = customer.lastOrderAmount.trim().filter { it.isDigit() || it == '.' }
+                val encodedName = try {
+                    java.net.URLEncoder.encode(profile.businessName.ifBlank { "Store" }, "UTF-8")
+                } catch (e: Exception) {
+                    "Store"
+                }
+                val orderNote = if (customer.lastOrderId.isNotBlank()) {
+                    "Invoice_${customer.lastOrderId.filter { it.isLetterOrDigit() }}"
+                } else {
+                    "Bill_Payment"
+                }
+                if (rawAmount.isNotBlank() && (rawAmount.toDoubleOrNull() ?: 0.0) > 0.0) {
+                    "upi://pay?pa=$upi&pn=$encodedName&am=$rawAmount&cu=INR&tn=$orderNote"
+                } else {
+                    "upi://pay?pa=$upi&pn=$encodedName&cu=INR&tn=$orderNote"
+                }
+            }
 
             // Appointments & Services
             "appointment_date" -> customer.lastAppointmentDate.ifBlank { getFormattedDateOffset(daysOffset = 1) }
@@ -443,12 +490,15 @@ class TemplateRenderer @Inject constructor() {
     private fun getDefaultFallback(token: String, profile: BusinessProfileEntity): String {
         return when (token) {
             "customer_name", "first_name" -> "Valued Customer"
-            "business_name" -> profile.businessName.ifEmpty { "Our Business" }
-            "owner_name" -> profile.ownerDisplayName.ifEmpty { "Store Manager" }
+            "business_name" -> profile.businessName.ifEmpty { "Your Business" }
+            "owner_name" -> profile.ownerDisplayName.ifEmpty { "Store Owner" }
             "business_phone" -> profile.communicationPhone
             "discount_percentage" -> "10"
             "coupon_code" -> "SPECIAL"
             "current_date" -> getFormattedTodayDate()
+            "google_review_link" -> if (profile.googleReviewLink.isNotBlank()) profile.googleReviewLink else "https://g.page/review"
+            "upi_id" -> if (profile.upiId.isNotBlank()) profile.upiId else "merchant@upi"
+            "upi_pay_link" -> if (profile.upiId.isNotBlank()) "upi://pay?pa=${profile.upiId}&pn=Store&cu=INR" else "upi://pay?pa=merchant@upi&pn=Store&cu=INR"
             else -> ""
         }
     }

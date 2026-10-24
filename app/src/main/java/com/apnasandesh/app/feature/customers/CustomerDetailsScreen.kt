@@ -43,7 +43,8 @@ import java.util.Locale
 fun CustomerDetailsScreen(
     customer: CustomerEntity?,
     onBack: () -> Unit,
-    onEditCustomer: (CustomerEntity) -> Unit,
+    onEditCustomer: ((CustomerEntity) -> Unit)? = null,
+    onUpdateCustomer: ((CustomerEntity, String, String, String, String, String, String, String, String, () -> Unit) -> Unit)? = null,
     onDeleteCustomer: (String) -> Unit,
     onToggleOptOut: (CustomerEntity, String) -> Unit,
     onStartCampaignForCustomer: (CustomerEntity) -> Unit
@@ -58,47 +59,44 @@ fun CustomerDetailsScreen(
     val context = LocalContext.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showOptOutConfirm by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(customer.fullName, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onEditCustomer(customer) }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Customer")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Profile Header Card
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(onClick = {
+                        if (onUpdateCustomer != null) {
+                            showEditDialog = true
+                        } else {
+                            onEditCustomer?.invoke(customer)
+                        }
+                    }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Customer", tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = { showDeleteConfirm = true }) {
                         Icon(Icons.Default.DeleteOutline, contentDescription = "Delete Customer", tint = MaterialTheme.colorScheme.error)
                     }
                 }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Profile Header Card
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CustomerAvatar(name = customer.fullName, size = 64)
+                CustomerAvatar(name = customer.fullName, size = 64)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = customer.fullName,
@@ -131,35 +129,84 @@ fun CustomerDetailsScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
-                        onClick = { onStartCampaignForCustomer(customer) },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("New Campaign", fontWeight = FontWeight.SemiBold)
+                        Button(
+                            onClick = { onStartCampaignForCustomer(customer) },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Campaign", fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Button(
+                            onClick = {
+                                val digitsOnly = customer.normalizedPhoneE164.filter { it.isDigit() }
+                                val waIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    data = Uri.parse("https://api.whatsapp.com/send?phone=$digitsOnly")
+                                }
+                                runCatching {
+                                    context.startActivity(waIntent)
+                                }.onFailure {
+                                    android.widget.Toast.makeText(context, "WhatsApp is not installed", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = StatusSuccess,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("WhatsApp", fontWeight = FontWeight.SemiBold)
+                        }
                     }
 
-                    OutlinedButton(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = Uri.parse("smsto:${customer.normalizedPhoneE164}")
-                            }
-                            context.startActivity(intent)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(Icons.Default.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("SMS App", fontWeight = FontWeight.SemiBold)
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_DIAL).apply {
+                                    data = Uri.parse("tel:${customer.normalizedPhoneE164}")
+                                }
+                                runCatching { context.startActivity(intent) }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Call", fontWeight = FontWeight.SemiBold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("smsto:${customer.normalizedPhoneE164}")
+                                }
+                                runCatching { context.startActivity(intent) }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("SMS App", fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
@@ -370,6 +417,17 @@ fun CustomerDetailsScreen(
                 }
             }
         }
+
+    if (showEditDialog && onUpdateCustomer != null) {
+        CustomerEditDialog(
+            customer = customer,
+            onDismiss = { showEditDialog = false },
+            onConfirm = { name, phone, tags, notes, consent, amount, orderId, apptDate ->
+                onUpdateCustomer(customer, name, phone, tags, notes, consent, amount, orderId, apptDate) {
+                    showEditDialog = false
+                }
+            }
+        )
     }
 
     if (showOptOutConfirm) {

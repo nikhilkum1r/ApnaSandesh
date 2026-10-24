@@ -16,3 +16,5 @@ node_modules/
 dist/
 out/
 astro_site_backup/
+screenshots/
+*.mp4

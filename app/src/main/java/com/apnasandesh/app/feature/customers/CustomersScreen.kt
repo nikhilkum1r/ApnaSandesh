@@ -2,6 +2,7 @@ package com.apnasandesh.app.feature.customers
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apnasandesh.app.core.database.CustomerEntity
 import com.apnasandesh.app.core.database.CustomerGroupEntity
+import com.apnasandesh.app.core.ui.theme.BrandAmberTertiaryLight
 import com.apnasandesh.app.core.ui.theme.StatusError
 import com.apnasandesh.app.core.ui.theme.StatusSuccess
 import com.apnasandesh.app.domain.validation.CsvImportSummary
@@ -51,8 +54,8 @@ import com.apnasandesh.app.feature.common.StatusBadge
 fun CustomerDirectoryScreen(
     customers: List<CustomerEntity>,
     groups: List<CustomerGroupEntity>,
-    onAddCustomer: (String, String, String, String, String, String, () -> Unit) -> Unit,
-    onUpdateCustomer: (CustomerEntity, String, String, String, String, String, () -> Unit) -> Unit,
+    onAddCustomer: (String, String, String, String, String, String, String, String, String, () -> Unit) -> Unit,
+    onUpdateCustomer: (CustomerEntity, String, String, String, String, String, String, String, String, () -> Unit) -> Unit,
     onDeleteCustomer: (String) -> Unit,
     onOptOut: (CustomerEntity, String) -> Unit,
     onNavigateToImport: () -> Unit,
@@ -255,8 +258,8 @@ fun CustomerDirectoryScreen(
         CustomerEditDialog(
             customer = null,
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, phone, tags, notes, consent ->
-                onAddCustomer(name, phone, tags, notes, consent, "MANUAL_ENTRY") {
+            onConfirm = { name, phone, tags, notes, consent, amount, orderId, apptDate ->
+                onAddCustomer(name, phone, tags, notes, consent, "MANUAL_ENTRY", amount, orderId, apptDate) {
                     showAddDialog = false
                 }
             }
@@ -267,8 +270,8 @@ fun CustomerDirectoryScreen(
         CustomerEditDialog(
             customer = customer,
             onDismiss = { editingCustomer = null },
-            onConfirm = { name, phone, tags, notes, consent ->
-                onUpdateCustomer(customer, name, phone, tags, notes, consent) {
+            onConfirm = { name, phone, tags, notes, consent, amount, orderId, apptDate ->
+                onUpdateCustomer(customer, name, phone, tags, notes, consent, amount, orderId, apptDate) {
                     editingCustomer = null
                 }
             }
@@ -446,6 +449,69 @@ fun CustomerCard(
                 }
             }
 
+            // Pending Dues & Appointment Badges
+            if (customer.lastOrderAmount.isNotBlank() || customer.lastAppointmentDate.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (customer.lastOrderAmount.isNotBlank()) {
+                        Surface(
+                            color = BrandAmberTertiaryLight.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, BrandAmberTertiaryLight.copy(alpha = 0.35f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.AccountBalanceWallet,
+                                    contentDescription = null,
+                                    tint = BrandAmberTertiaryLight,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Due: ₹${customer.lastOrderAmount}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = BrandAmberTertiaryLight,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                    if (customer.lastAppointmentDate.isNotBlank()) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Appt: ${customer.lastAppointmentDate}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Customer Notes
             if (customer.notes.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -486,6 +552,26 @@ fun CustomerCard(
                     }
                 }
 
+                val context = LocalContext.current
+                TextButton(
+                    onClick = {
+                        val digitsOnly = customer.normalizedPhoneE164.filter { it.isDigit() }
+                        val waIntent = Intent(Intent.ACTION_VIEW).apply {
+                            data = Uri.parse("https://api.whatsapp.com/send?phone=$digitsOnly")
+                        }
+                        runCatching {
+                            context.startActivity(waIntent)
+                        }.onFailure {
+                            android.widget.Toast.makeText(context, "WhatsApp is not installed", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = StatusSuccess)
+                ) {
+                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("WhatsApp", style = MaterialTheme.typography.labelMedium)
+                }
+
                 TextButton(onClick = onEdit) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -512,13 +598,16 @@ fun CustomerCard(
 fun CustomerEditDialog(
     customer: CustomerEntity?,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String, String) -> Unit
+    onConfirm: (String, String, String, String, String, String, String, String) -> Unit
 ) {
     var name by remember { mutableStateOf(customer?.fullName ?: "") }
     var phone by remember { mutableStateOf(customer?.rawPhoneNumber ?: "") }
     var tags by remember { mutableStateOf(customer?.tagsCsv ?: "") }
     var notes by remember { mutableStateOf(customer?.notes ?: "") }
     var consent by remember { mutableStateOf(customer?.consentStatus ?: "GRANTED") }
+    var lastOrderAmount by remember { mutableStateOf(customer?.lastOrderAmount ?: "") }
+    var lastOrderId by remember { mutableStateOf(customer?.lastOrderId ?: "") }
+    var lastAppointmentDate by remember { mutableStateOf(customer?.lastAppointmentDate ?: "") }
 
     val phoneNormalizer = remember { PhoneNormalizer() }
     val normalizationResult = remember(phone) { phoneNormalizer.normalize(phone, "+91") }
@@ -547,7 +636,7 @@ fun CustomerEditDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Full Name *") },
-                    placeholder = { Text("e.g. Aarav Sharma") },
+                    placeholder = { Text("Enter full name") },
                     shape = RoundedCornerShape(10.dp),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -558,7 +647,7 @@ fun CustomerEditDialog(
                         value = phone,
                         onValueChange = { phone = it },
                         label = { Text("Phone Number *") },
-                        placeholder = { Text("9876543210 or +91...") },
+                        placeholder = { Text("e.g. 9876543210 or +91...") },
                         isError = phone.isNotBlank() && !isPhoneValid,
                         shape = RoundedCornerShape(10.dp),
                         singleLine = true,
@@ -677,13 +766,57 @@ fun CustomerEditDialog(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                Text(
+                    text = "Dues & Reminders (Optional)",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                OutlinedTextField(
+                    value = lastOrderAmount,
+                    onValueChange = { lastOrderAmount = it },
+                    label = { Text("Outstanding Due / Bill (₹)") },
+                    placeholder = { Text("e.g. 1500") },
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = lastOrderId,
+                        onValueChange = { lastOrderId = it },
+                        label = { Text("Bill / Order ID") },
+                        placeholder = { Text("e.g. INV-101") },
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedTextField(
+                        value = lastAppointmentDate,
+                        onValueChange = { lastAppointmentDate = it },
+                        label = { Text("Appt Date") },
+                        placeholder = { Text("e.g. 25 Oct") },
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (canSubmit) {
-                        onConfirm(name, phone, tags, notes, consent)
+                        onConfirm(name, phone, tags, notes, consent, lastOrderAmount, lastOrderId, lastAppointmentDate)
                     }
                 },
                 enabled = canSubmit,
@@ -1154,7 +1287,7 @@ fun CustomerImportScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Name,Phone,Tags,Notes,Consent_Status\nRajesh Kumar,9876543210,retail,Weekly buyer,GRANTED",
+                            text = "Name,Phone,Tags,Notes,Consent_Status\nCustomer Name,9876543210,retail,Weekly buyer,GRANTED",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

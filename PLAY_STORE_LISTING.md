@@ -79,18 +79,19 @@ When completing the **Data Safety form** in the Google Play Console:
 
 ---
 
-## 4. Sensitive Permissions Declaration Form
+## 4. Permissions & Policy Status (v1.0.2 - Google Play Compliant Release)
 
-Google Play requires declaration for apps declaring `SEND_SMS`:
+- **Sensitive SMS Permissions Form:** **NOT REQUIRED**
+  - In version 1.0.2, `android.permission.SEND_SMS` and `android.permission.READ_PHONE_STATE` are completely removed from the Google Play release manifest.
+  - The app uses Android's native `Intent.ACTION_SENDTO` (`smsto:`), pre-filling the user's default messaging app with zero sensitive permissions required.
+  - The Google Play Console will no longer request a Permissions Declaration Form.
 
-### Permission: `SEND_SMS`
-- **Core Functionality:** Business SMS message dispatching.
-- **Why is it needed:** ApnaSandesh provides an automated Direct SIM dispatch mode for small business owners sending individual personalized SMS messages to their existing clients.
-- **Is there an alternative?** Yes, ApnaSandesh also provides a zero-permission SMS Composer mode (`COMPOSER_HANDOFF`). Direct SIM is explicitly gated behind user opt-in in Settings.
+- **Foreground Service Declaration Form:** **NOT REQUIRED**
+  - No `FOREGROUND_SERVICE` or `FOREGROUND_SERVICE_SPECIAL_USE` permissions are declared in the manifest.
 
-### Permission: `FOREGROUND_SERVICE_SPECIAL_USE` (Android 14+)
-- **Subtype Value:** `Autonomous campaign SMS message dispatching and progress tracking`
-- **Explanation:** Ensures sequential message transmission is not killed by the OS when the screen locks or when the user temporarily switches apps during a multi-client dispatch.
+- **Declared Permissions on Google Play:**
+  1. `READ_CONTACTS`: Optional runtime permission requested only when the user explicitly chooses "Browse & Select Contacts" in the customer directory.
+  2. `POST_NOTIFICATIONS`: Android 13+ runtime notification permission used for local progress updates and scheduled campaign reminders.
 
 ---
 

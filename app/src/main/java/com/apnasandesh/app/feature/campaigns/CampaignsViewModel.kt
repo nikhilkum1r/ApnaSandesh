@@ -104,6 +104,9 @@ class CampaignsViewModel @Inject constructor(
         _activeCampaignId.value = id
         _currentRecipientIndex.value = 0
         viewModelScope.launch {
+            if (!policyGate.isDirectSmsPermissionDeclared()) {
+                campaignRepository.updateCampaignTransportType(id, "COMPOSER_HANDOFF")
+            }
             campaignEngine.syncCampaignState(id)
         }
     }

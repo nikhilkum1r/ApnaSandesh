@@ -479,7 +479,7 @@ fun CampaignDetailPane(
                                     )
                                 }
 
-                                if (!r.lastErrorMessage.isNullOrBlank()) {
+                                if (!r.lastErrorMessage.isNullOrBlank() && (r.state == "FAILED" || r.state == "CANCELLED")) {
                                     Text(
                                         text = "Error: ${r.lastErrorMessage}",
                                         style = MaterialTheme.typography.labelSmall,
@@ -525,10 +525,11 @@ fun CampaignDetailPane(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     if (!attempt.errorDetail.isNullOrBlank()) {
+                                        val isFailure = attempt.outcomeState == "FAILED" || attempt.outcomeState == "CANCELLED"
                                         Text(
-                                            text = attempt.errorDetail,
+                                            text = if (isFailure) "Error: ${attempt.errorDetail}" else attempt.errorDetail,
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = StatusError
+                                            color = if (isFailure) StatusError else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }

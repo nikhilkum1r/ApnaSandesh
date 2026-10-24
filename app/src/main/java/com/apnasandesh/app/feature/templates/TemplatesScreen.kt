@@ -580,16 +580,16 @@ fun TemplateCard(
 ) {
     val sampleCustomer = remember(customers) {
         customers.firstOrNull { it.fullName.isNotBlank() } ?: CustomerEntity(
-            fullName = "Aarav Sharma",
-            rawPhoneNumber = "9876543210",
-            normalizedPhoneE164 = "+919876543210"
+            fullName = "Customer Name",
+            rawPhoneNumber = "",
+            normalizedPhoneE164 = ""
         )
     }
     val safeProfile = profile ?: BusinessProfileEntity(
-        businessName = "Apna General Store",
-        ownerDisplayName = "Shop Owner",
+        businessName = "Your Business",
+        ownerDisplayName = "Your Name",
         businessCategory = "Retail",
-        communicationPhone = "+919876500000"
+        communicationPhone = ""
     )
 
     val renderedPreview = remember(template.bodyTemplate, safeProfile, sampleCustomer, template.isPromotional) {
@@ -811,17 +811,17 @@ fun TemplateEditorDialog(
     // Selected customer for live preview
     var previewCustomer by remember {
         mutableStateOf(customers.firstOrNull() ?: CustomerEntity(
-            fullName = "Aarav Sharma",
-            rawPhoneNumber = "9876543210",
-            normalizedPhoneE164 = "+919876543210"
+            fullName = "Customer Name",
+            rawPhoneNumber = "",
+            normalizedPhoneE164 = ""
         ))
     }
 
     val safeProfile = profile ?: BusinessProfileEntity(
-        businessName = "Apna General Store",
-        ownerDisplayName = "Shop Owner",
+        businessName = "Your Business",
+        ownerDisplayName = "Your Name",
         businessCategory = "Retail",
-        communicationPhone = "+919876500000"
+        communicationPhone = ""
     )
 
     val livePreview = remember(body, safeProfile, previewCustomer, isPromotional) {

@@ -40,8 +40,49 @@ interface CustomerDao {
     @Update
     suspend fun updateCustomer(customer: CustomerEntity)
 
+    @Query("DELETE FROM send_attempts WHERE campaignRecipientId IN (SELECT id FROM campaign_recipients WHERE customerId = :customerId)")
+    suspend fun deleteSendAttemptsForCustomer(customerId: String)
+
+    @Query("DELETE FROM campaign_recipients WHERE customerId = :customerId")
+    suspend fun deleteCampaignRecipientsForCustomer(customerId: String)
+
+    @Query("DELETE FROM group_memberships WHERE customerId = :customerId")
+    suspend fun deleteGroupMembershipsForCustomer(customerId: String)
+
     @Query("DELETE FROM customers WHERE id = :customerId")
     suspend fun deleteCustomerById(customerId: String)
+
+    @Transaction
+    suspend fun deleteCustomerWithRelations(customerId: String) {
+        deleteSendAttemptsForCustomer(customerId)
+        deleteCampaignRecipientsForCustomer(customerId)
+        deleteGroupMembershipsForCustomer(customerId)
+        deleteCustomerById(customerId)
+    }
+
+    @Query("DELETE FROM send_attempts WHERE campaignRecipientId IN (SELECT id FROM campaign_recipients WHERE customerId IN (SELECT id FROM customers WHERE consentSource = 'DEMO_SAMPLE'))")
+    suspend fun deleteDemoSampleSendAttempts()
+
+    @Query("DELETE FROM campaign_recipients WHERE customerId IN (SELECT id FROM customers WHERE consentSource = 'DEMO_SAMPLE')")
+    suspend fun deleteDemoSampleCampaignRecipients()
+
+    @Query("DELETE FROM group_memberships WHERE customerId IN (SELECT id FROM customers WHERE consentSource = 'DEMO_SAMPLE')")
+    suspend fun deleteDemoSampleGroupMemberships()
+
+    @Query("DELETE FROM customers WHERE consentSource = 'DEMO_SAMPLE'")
+    suspend fun deleteDemoSampleCustomerRecords()
+
+    @Transaction
+    suspend fun purgeDemoSampleData() {
+        deleteDemoSampleSendAttempts()
+        deleteDemoSampleCampaignRecipients()
+        deleteDemoSampleGroupMemberships()
+        deleteDemoSampleCustomerRecords()
+    }
+
+    suspend fun deleteDemoSampleCustomers() {
+        purgeDemoSampleData()
+    }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConsentRecord(record: ConsentRecordEntity)
@@ -280,6 +321,9 @@ interface CampaignDao {
         completedAt: Long? = null,
         now: Long = System.currentTimeMillis()
     )
+
+    @Query("UPDATE campaigns SET transportType = :transportType, updatedAtMillis = :now WHERE id = :campaignId")
+    suspend fun updateCampaignTransportType(campaignId: String, transportType: String, now: Long = System.currentTimeMillis())
 
     @Transaction
     suspend fun replaceDraftCampaignWithRecipients(

@@ -8,6 +8,7 @@ import com.apnasandesh.app.domain.campaign.CampaignStateMachine
 import com.apnasandesh.app.domain.validation.CsvCustomerParser
 import com.apnasandesh.app.domain.validation.PhoneNormalizer
 import com.apnasandesh.app.domain.validation.PhoneValidationResult
+import com.apnasandesh.app.domain.validation.SmsCostOptimizer
 import com.apnasandesh.app.domain.validation.SmsSegmentCalculator
 import com.apnasandesh.app.domain.validation.TemplateRenderer
 import com.apnasandesh.app.domain.validation.TraiDltComplianceAdvisor
@@ -179,6 +180,52 @@ class DomainLogicUnitTest {
         assertTrue(rendered.contains("Call +919876543210."))
         assertTrue(rendered.contains("- Apex Services"))
         assertFalse(rendered.contains("{{"))
+    }
+
+    @Test
+    fun testTemplateRendererUpiAndReviewTokens() {
+        val customer = CustomerEntity(
+            fullName = "Anil Sharma",
+            rawPhoneNumber = "9876543210",
+            normalizedPhoneE164 = "+919876543210",
+            lastOrderId = "INV990",
+            lastOrderAmount = "1500"
+        )
+        val profileWithUpi = BusinessProfileEntity(
+            businessName = "Sharma Kirana",
+            ownerDisplayName = "Sharma Ji",
+            businessCategory = "Grocery",
+            communicationPhone = "+919876543210",
+            upiId = "sharma@okhdfcbank",
+            googleReviewLink = "https://g.page/r/sharmakirana/review"
+        )
+
+        val template = "Dear {{first_name}}, pay bill here: {{upi_pay_link}} and rate us: {{google_review_link}}"
+        val rendered = renderer.render(
+            rawTemplate = template,
+            customer = customer,
+            profile = profileWithUpi,
+            appendSignature = false
+        )
+
+        assertTrue(rendered.contains("Dear Anil"))
+        assertTrue(rendered.contains("upi://pay?pa=sharma@okhdfcbank&pn=Sharma+Kirana&am=1500&cu=INR&tn=Invoice_INV990"))
+        assertTrue(rendered.contains("https://g.page/r/sharmakirana/review"))
+        assertFalse(rendered.contains("{{"))
+    }
+
+    @Test
+    fun testSmsCostOptimizerCondensesVerboseText() {
+        val costOptimizer = SmsCostOptimizer(segmentCalculator)
+        val verboseMessage = "Thank you very much for your business! Please visit our store for your appointment and discount. Please contact us at 9876543210."
+        val result = costOptimizer.optimize(verboseMessage)
+
+        assertTrue(result.savedCharacters > 0)
+        assertTrue(result.optimizedText.contains("Thanks a lot"))
+        assertTrue(result.optimizedText.contains("Visit us"))
+        assertTrue(result.optimizedText.contains("Appt"))
+        assertTrue(result.optimizedText.contains("Disc"))
+        assertTrue(result.optimizedText.contains("Call"))
     }
 
     // 5. State Machine Transition Integrity Tests

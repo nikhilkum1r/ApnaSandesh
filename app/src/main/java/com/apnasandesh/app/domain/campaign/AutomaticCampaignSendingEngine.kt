@@ -123,20 +123,14 @@ class AutomaticCampaignSendingEngine @Inject constructor(
             val resolvedInterval = intervalSeconds ?: campaign.sendingIntervalSeconds
 
             // Pre-flight channel policy and permission verification
-            if (campaign.transportType == "DIRECT_SIM") {
-                if (!policyGate.hasDirectSmsRuntimePermissions()) {
+            var effectiveTransport = campaign.transportType
+            if (effectiveTransport == "DIRECT_SIM") {
+                if (!policyGate.isDirectSmsPermissionDeclared()) {
+                    campaignDao.updateCampaignTransportType(campaignId, "COMPOSER_HANDOFF")
+                    effectiveTransport = "COMPOSER_HANDOFF"
+                } else if (!policyGate.hasDirectSmsRuntimePermissions()) {
                     _liveEngineState.value = _liveEngineState.value?.copy(
-                        statusMessage = "SEND_SMS permission has not been granted. Please grant SMS permissions in Android Settings.",
-                        isRunning = false,
-                        isPaused = true
-                    )
-                    campaignDao.updateCampaignStatus(campaignId, "PAUSED")
-                    return@launch
-                }
-                val activeSims = policyGate.getActiveSimSubscriptions()
-                if (activeSims.isEmpty()) {
-                    _liveEngineState.value = _liveEngineState.value?.copy(
-                        statusMessage = "No active SIM card detected in device. Insert a SIM card to dispatch via Direct SIM.",
+                        statusMessage = "SEND_SMS permission has not been granted. Please grant SMS permissions to proceed.",
                         isRunning = false,
                         isPaused = true
                     )
@@ -232,8 +226,15 @@ class AutomaticCampaignSendingEngine @Inject constructor(
                         delay(delayMillis)
                     }
 
-                    // Loop ended: finalize campaign outcome
+                    // Loop ended: wait briefly for in-flight radio broadcasts to settle
                     if (!isStopped.get() && !isPaused.get()) {
+                        var waitRounds = 0
+                        while (isActive && waitRounds < 10) {
+                            val hasInFlight = campaignDao.getCampaignRecipientsSnapshot(campaignId).any { it.state == "SUBMITTED" }
+                            if (!hasInFlight) break
+                            delay(500)
+                            waitRounds++
+                        }
                         finalizeCampaign(campaignId)
                     }
                 } catch (e: CancellationException) {

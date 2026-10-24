@@ -27,6 +27,7 @@ class CampaignStateMachine @Inject constructor() {
             )
             RecipientDeliveryState.AWAITING_CONFIRMATION -> target in setOf(
                 RecipientDeliveryState.HANDED_OFF_TO_MESSAGING_APP,
+                RecipientDeliveryState.SENT,
                 RecipientDeliveryState.QUEUED,
                 RecipientDeliveryState.CANCELLED
             )

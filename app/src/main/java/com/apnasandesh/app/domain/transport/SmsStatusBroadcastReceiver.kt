@@ -25,6 +25,11 @@ class SmsStatusBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val recipientRowId = intent.getStringExtra(EXTRA_RECIPIENT_ROW_ID) ?: return
         val subscriptionId = intent.getIntExtra(EXTRA_SUBSCRIPTION_ID, -1).takeIf { it != -1 }
+
+        // CRITICAL: resultCode MUST be captured synchronously BEFORE goAsync().
+        // Calling goAsync() nullifies mPendingResult in BroadcastReceiver, which causes
+        // any subsequent access to resultCode / getResultCode() to unconditionally return 0!
+        val capturedResultCode = resultCode
         val pendingResult = goAsync()
 
         val entryPoint = EntryPointAccessors.fromApplication(
@@ -36,11 +41,11 @@ class SmsStatusBroadcastReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val recipient = campaignDao.getCampaignRecipientById(recipientRowId)
-                val campaignId = recipient?.campaignId ?: ""
+                val campaignId = recipient?.campaignId.orEmpty()
 
                 when (intent.action) {
                     ACTION_SMS_SENT -> {
-                        if (resultCode == Activity.RESULT_OK) {
+                        if (capturedResultCode == Activity.RESULT_OK) {
                             campaignDao.recordSendAttemptAndTransitionState(
                                 recipientRowId = recipientRowId,
                                 campaignId = campaignId,
@@ -48,16 +53,17 @@ class SmsStatusBroadcastReceiver : BroadcastReceiver() {
                                 transportMode = "DIRECT_SIM",
                                 subscriptionId = subscriptionId,
                                 errorCode = null,
-                                errorMessage = "Accepted by cellular network (SENT)"
+                                errorMessage = null
                             )
                         } else {
-                            val (code, reason) = when (resultCode) {
+                            val (code, reason) = when (capturedResultCode) {
                                 SmsManager.RESULT_ERROR_GENERIC_FAILURE -> "RESULT_ERROR_GENERIC_FAILURE" to "Generic carrier failure / insufficient balance"
                                 SmsManager.RESULT_ERROR_NO_SERVICE -> "RESULT_ERROR_NO_SERVICE" to "No cellular service available"
                                 SmsManager.RESULT_ERROR_RADIO_OFF -> "RESULT_ERROR_RADIO_OFF" to "Cellular radio is turned off / Airplane mode"
                                 SmsManager.RESULT_ERROR_NULL_PDU -> "RESULT_ERROR_NULL_PDU" to "Null PDU error from telephony layer"
                                 SmsManager.RESULT_ERROR_LIMIT_EXCEEDED -> "RESULT_ERROR_LIMIT_EXCEEDED" to "Carrier or Android SMS quota limit exceeded"
-                                else -> "ERROR_CODE_$resultCode" to "SMS transmission failed (code $resultCode)"
+                                Activity.RESULT_CANCELED -> "RESULT_CANCELED" to "SMS transmission cancelled (SIM slot not ready or carrier cancelled)"
+                                else -> "ERROR_CODE_$capturedResultCode" to "SMS transmission failed (code $capturedResultCode)"
                             }
                             campaignDao.recordSendAttemptAndTransitionState(
                                 recipientRowId = recipientRowId,
@@ -69,9 +75,13 @@ class SmsStatusBroadcastReceiver : BroadcastReceiver() {
                                 errorMessage = reason
                             )
                         }
+
+                        if (campaignId.isNotBlank()) {
+                            checkAndFinalizeCampaignIfDone(campaignDao, campaignId)
+                        }
                     }
                     ACTION_SMS_DELIVERED -> {
-                        if (resultCode == Activity.RESULT_OK) {
+                        if (capturedResultCode == Activity.RESULT_OK) {
                             campaignDao.recordSendAttemptAndTransitionState(
                                 recipientRowId = recipientRowId,
                                 campaignId = campaignId,
@@ -79,7 +89,7 @@ class SmsStatusBroadcastReceiver : BroadcastReceiver() {
                                 transportMode = "DIRECT_SIM",
                                 subscriptionId = subscriptionId,
                                 errorCode = null,
-                                errorMessage = "Confirmed by carrier delivery receipt"
+                                errorMessage = null
                             )
                         }
                     }
@@ -87,6 +97,28 @@ class SmsStatusBroadcastReceiver : BroadcastReceiver() {
             } finally {
                 pendingResult.finish()
             }
+        }
+    }
+
+    private suspend fun checkAndFinalizeCampaignIfDone(campaignDao: CampaignDao, campaignId: String) {
+        val remaining = campaignDao.getCampaignRecipientsSnapshot(campaignId).filter {
+            it.state in setOf("DRAFT", "VALIDATED", "AWAITING_CONFIRMATION", "QUEUED", "SUBMITTED", "HANDED_OFF_TO_MESSAGING_APP")
+        }
+        if (remaining.isEmpty()) {
+            val all = campaignDao.getCampaignRecipientsSnapshot(campaignId)
+            val failed = all.count { it.state == "FAILED" }
+            val sent = all.count { it.state == "SENT" || it.state == "DELIVERED" }
+            val finalStatus = when {
+                sent > 0 && failed > 0 -> "COMPLETED_WITH_ERRORS"
+                sent > 0 && failed == 0 -> "COMPLETED"
+                sent == 0 && failed > 0 -> "FAILED"
+                else -> "COMPLETED"
+            }
+            campaignDao.updateCampaignStatus(
+                campaignId = campaignId,
+                status = finalStatus,
+                completedAt = System.currentTimeMillis()
+            )
         }
     }
 

@@ -76,12 +76,12 @@ class CampaignRepository @Inject constructor(
 
         val profile = profileAndSettingsDao.getBusinessProfile() ?: BusinessProfileEntity(
             id = "default_profile",
-            businessName = "My Local Shop",
-            ownerDisplayName = "Owner",
-            businessCategory = "Retail",
+            businessName = "",
+            ownerDisplayName = "",
+            businessCategory = "Retail & Services",
             communicationPhone = "",
             businessAddress = "",
-            defaultMessageSignature = "- My Local Shop",
+            defaultMessageSignature = "",
             updatedAtEpochMillis = System.currentTimeMillis()
         )
 
@@ -217,6 +217,10 @@ class CampaignRepository @Inject constructor(
         }
     }
 
+    suspend fun updateCampaignTransportType(campaignId: String, transportType: String) = withContext(dispatchers.io) {
+        campaignDao.updateCampaignTransportType(campaignId, transportType)
+    }
+
     suspend fun markRecipientComposerDone(recipientRowId: String, campaignId: String) = withContext(dispatchers.io) {
         campaignDao.recordSendAttemptAndTransitionState(
             recipientRowId = recipientRowId,
@@ -225,7 +229,7 @@ class CampaignRepository @Inject constructor(
             transportMode = "COMPOSER_HANDOFF",
             subscriptionId = null,
             errorCode = null,
-            errorMessage = "Marked sent after messaging app handoff"
+            errorMessage = null
         )
         checkAndCompleteCampaignIfDone(campaignId)
     }
@@ -298,7 +302,7 @@ class CampaignRepository @Inject constructor(
                             transportMode = "COMPOSER_HANDOFF",
                             subscriptionId = null,
                             errorCode = null,
-                            errorMessage = "Opened in messaging app; awaiting user confirmation"
+                            errorMessage = null
                         )
                         campaignDao.updateCampaignStatus(campaignId, "IN_PROGRESS")
                     }
@@ -325,7 +329,7 @@ class CampaignRepository @Inject constructor(
                     transportMode = "DIRECT_SIM",
                     subscriptionId = campaign.selectedSubscriptionId,
                     errorCode = null,
-                    errorMessage = "Submitting to SIM radio..."
+                    errorMessage = null
                 )
                 campaignDao.updateCampaignStatus(campaignId, "IN_PROGRESS")
                 val outcome = directSimTransport.send(

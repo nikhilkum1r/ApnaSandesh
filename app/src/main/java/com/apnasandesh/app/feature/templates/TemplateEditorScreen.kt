@@ -23,6 +23,7 @@ import com.apnasandesh.app.core.database.MessageTemplateEntity
 import com.apnasandesh.app.core.model.TemplateCategory
 import com.apnasandesh.app.core.ui.theme.BrandAmberTertiaryLight
 import com.apnasandesh.app.core.ui.theme.StatusSuccess
+import com.apnasandesh.app.domain.validation.SmsCostOptimizer
 import com.apnasandesh.app.domain.validation.SmsSegmentCalculator
 import com.apnasandesh.app.domain.validation.TemplateRenderer
 import java.util.UUID
@@ -52,29 +53,31 @@ fun TemplateEditorScreen(
     var bodyError by remember { mutableStateOf(false) }
 
     val segmentMetrics = remember(body) { segmentCalculator.calculate(body) }
+    val costOptimizer = remember { SmsCostOptimizer(segmentCalculator) }
+    val canOptimize = remember(body) { costOptimizer.canOptimize(body) }
 
     val sampleCustomer = remember {
         CustomerEntity(
-            fullName = "Rahul Sharma",
-            rawPhoneNumber = "9876543210",
-            normalizedPhoneE164 = "+919876543210",
-            company = "Sharma & Sons",
-            lastOrderId = "ORD-2041",
-            lastOrderAmount = "₹850",
-            lastOrderDate = "22 Oct 2026",
+            fullName = "Customer Name",
+            rawPhoneNumber = "",
+            normalizedPhoneE164 = "",
+            company = "Company",
+            lastOrderId = "ORD-101",
+            lastOrderAmount = "₹500",
+            lastOrderDate = "Today",
             lastAppointmentDate = "Tomorrow",
-            lastAppointmentTime = "11:00 AM",
-            lastServiceName = "General Service"
+            lastAppointmentTime = "10:00 AM",
+            lastServiceName = "Service"
         )
     }
 
     val sampleProfile = remember(profile) {
         profile ?: BusinessProfileEntity(
-            businessName = "Apna General Store",
-            ownerDisplayName = "Rajesh Kumar",
+            businessName = "Your Business",
+            ownerDisplayName = "Your Name",
             businessCategory = "Retail",
             communicationPhone = "+91 98765 00000",
-            defaultMessageSignature = "- Apna General Store"
+            defaultMessageSignature = "- Your Business"
         )
     }
 
@@ -100,35 +103,31 @@ fun TemplateEditorScreen(
         "{{business_signature}}" to "Signature"
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (template == null) "New Template" else "Edit Template", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { isFavorite = !isFavorite }) {
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = "Favorite",
-                            tint = if (isFavorite) BrandAmberTertiaryLight else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = if (template == null) "Create New Template" else "Edit Template",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(onClick = { isFavorite = !isFavorite }) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = "Favorite",
+                    tint = if (isFavorite) BrandAmberTertiaryLight else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
             // Template Title
             OutlinedTextField(
                 value = title,
@@ -206,42 +205,67 @@ fun TemplateEditorScreen(
                 }
             }
 
-            // Live SMS Segment Calculator Box
+            // Live SMS Segment Calculator Box with Auto-Shrink Quota Saver
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = "${segmentMetrics.charCount} characters • ${segmentMetrics.segmentCount} segment(s)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (segmentMetrics.isUcs2Unicode) "Unicode encoding (67-70 chars/segment)" else "Standard GSM-7 (153-160 chars/segment)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "${segmentMetrics.charCount} characters • ${segmentMetrics.segmentCount} segment(s)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (segmentMetrics.isUcs2Unicode) "Unicode encoding (67-70 chars/segment)" else "Standard GSM-7 (153-160 chars/segment)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Surface(
+                            color = if (segmentMetrics.isUcs2Unicode) BrandAmberTertiaryLight.copy(alpha = 0.15f) else StatusSuccess.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = if (segmentMetrics.isUcs2Unicode) "UNICODE" else "GSM-7",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (segmentMetrics.isUcs2Unicode) BrandAmberTertiaryLight else StatusSuccess,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
 
-                    Surface(
-                        color = if (segmentMetrics.isUcs2Unicode) BrandAmberTertiaryLight.copy(alpha = 0.15f) else StatusSuccess.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = if (segmentMetrics.isUcs2Unicode) "UNICODE" else "GSM-7",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (segmentMetrics.isUcs2Unicode) BrandAmberTertiaryLight else StatusSuccess,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                    if (canOptimize) {
+                        FilledTonalButton(
+                            onClick = {
+                                val opt = costOptimizer.optimize(body)
+                                body = opt.optimizedText
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "✨ Auto-Shrink to Fit 1 SMS (Save 50% Quota)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -327,6 +351,5 @@ fun TemplateEditorScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Save Template", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-        }
     }
 }

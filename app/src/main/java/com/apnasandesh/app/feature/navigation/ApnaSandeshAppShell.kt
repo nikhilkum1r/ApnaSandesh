@@ -29,6 +29,7 @@ import androidx.core.content.ContextCompat
 import com.apnasandesh.app.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import com.apnasandesh.app.core.ui.theme.StatusSuccess
 import com.apnasandesh.app.feature.campaigns.CampaignEditorScreen
 import com.apnasandesh.app.feature.campaigns.CampaignReviewScreen
@@ -108,6 +109,13 @@ fun ApnaSandeshAppShell(
     var stagedIntervalSeconds by remember { mutableIntStateOf(3) }
     var stagedSimId by remember { mutableStateOf<Int?>(null) }
 
+    LaunchedEffect(appSettings?.preferredTransport) {
+        val pref = appSettings?.preferredTransport
+        if (!pref.isNullOrBlank()) {
+            stagedChannel = pref
+        }
+    }
+
     // Handle initial onboarding
     if (appSettings != null && !appSettings!!.onboardingCompleted) {
         OnboardingScreen(onFinished = { dashboardViewModel.completeOnboarding() })
@@ -117,20 +125,73 @@ fun ApnaSandeshAppShell(
     // Global Snackbar state for error/success messages
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var pendingCampaignStartId by remember { mutableStateOf<String?>(null) }
+    var pendingScheduledMillis by remember { mutableStateOf<Long?>(null) }
+
+    val directSimPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        campaignsViewModel.refreshSims()
+        val sendGranted = grants[Manifest.permission.SEND_SMS] == true ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+
+        if (sendGranted) {
+            val cId = pendingCampaignStartId
+            if (cId != null) {
+                val sched = pendingScheduledMillis
+                if (sched != null) {
+                    campaignsViewModel.scheduleCampaignWork(cId, sched)
+                    currentNav = NavDestination.CAMPAIGNS
+                } else {
+                    campaignsViewModel.startSendingSession(cId, stagedIntervalSeconds)
+                    currentNav = NavDestination.CAMPAIGN_SENDING
+                }
+                pendingCampaignStartId = null
+                pendingScheduledMillis = null
+            }
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "SEND_SMS permission is required to dispatch messages via Direct SIM",
+                    duration = SnackbarDuration.Long
+                )
+            }
+        }
+    }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { /* Notification granted or dismissed */ }
 
     LaunchedEffect(Unit) {
+        val permissionsToRequest = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasNotif = ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
             if (!hasNotif) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+        val hasSendSms = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.SEND_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasPhoneState = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_PHONE_STATE
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasSendSms) {
+            permissionsToRequest.add(Manifest.permission.SEND_SMS)
+        }
+        if (!hasPhoneState) {
+            permissionsToRequest.add(Manifest.permission.READ_PHONE_STATE)
+        }
+        if (permissionsToRequest.isNotEmpty()) {
+            directSimPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 
@@ -295,6 +356,7 @@ fun ApnaSandeshAppShell(
                     suppressedCount = suppressed.size,
                     draftsCount = allCampaigns.count { it.status == "DRAFT" },
                     recentCampaignsCount = allCampaigns.size,
+                    customers = customers,
                     onNavigateToCustomers = { currentNav = NavDestination.CUSTOMERS },
                     onNavigateToImport = { currentNav = NavDestination.IMPORT },
                     onNavigateToCampaigns = { currentNav = NavDestination.CAMPAIGNS },
@@ -308,19 +370,19 @@ fun ApnaSandeshAppShell(
                     onSaveProfile = { name, owner, cat, phone, addr, code, sig ->
                         dashboardViewModel.saveBusinessProfile(name, owner, cat, phone, addr, code, sig)
                     },
-                    onSaveProfileExtended = { name, owner, cat, phone, addr, code, sig, web, curr, lang, tone ->
-                        dashboardViewModel.saveBusinessProfile(name, owner, cat, phone, addr, code, sig, web, curr, lang, tone)
+                    onSaveProfileExtended = { name, owner, cat, phone, addr, code, sig, web, curr, lang, tone, upi, rev ->
+                        dashboardViewModel.saveBusinessProfile(name, owner, cat, phone, addr, code, sig, web, curr, lang, tone, upi, rev)
                     },
                     onBack = { currentNav = NavDestination.SETTINGS }
                 )
                 NavDestination.CUSTOMERS -> CustomerDirectoryScreen(
                     customers = customers,
                     groups = groups,
-                    onAddCustomer = { name, phone, tags, notes, consent, source, onSuccess ->
-                        customersViewModel.addCustomer(name, phone, tags, notes, consent, source, onSuccess)
+                    onAddCustomer = { name, phone, tags, notes, consent, source, amount, orderId, apptDate, onSuccess ->
+                        customersViewModel.addCustomer(name, phone, tags, notes, consent, source, amount, orderId, apptDate, onSuccess)
                     },
-                    onUpdateCustomer = { cust, name, phone, tags, notes, consent, onSuccess ->
-                        customersViewModel.updateCustomer(cust, name, phone, tags, notes, consent, onSuccess)
+                    onUpdateCustomer = { cust, name, phone, tags, notes, consent, amount, orderId, apptDate, onSuccess ->
+                        customersViewModel.updateCustomer(cust, name, phone, tags, notes, consent, amount, orderId, apptDate, onSuccess)
                     },
                     onDeleteCustomer = { customersViewModel.deleteCustomer(it) },
                     onOptOut = { cust, reason -> customersViewModel.recordOptOut(cust, reason) },
@@ -336,8 +398,8 @@ fun ApnaSandeshAppShell(
                     CustomerDetailsScreen(
                         customer = activeCustomer,
                         onBack = { currentNav = NavDestination.CUSTOMERS },
-                        onEditCustomer = { cust ->
-                            currentNav = NavDestination.CUSTOMERS
+                        onUpdateCustomer = { cust, name, phone, tags, notes, consent, amount, orderId, apptDate, onSuccess ->
+                            customersViewModel.updateCustomer(cust, name, phone, tags, notes, consent, amount, orderId, apptDate, onSuccess)
                         },
                         onDeleteCustomer = { custId ->
                             customersViewModel.deleteCustomer(custId)
@@ -419,6 +481,7 @@ fun ApnaSandeshAppShell(
                         templateRenderer = campaignsViewModel.templateRenderer,
                         activeSims = activeSims,
                         selectedSimSubscriptionId = stagedSimId,
+                        initialTransportMode = stagedChannel.ifBlank { appSettings?.preferredTransport ?: "DIRECT_SIM" },
                         onSelectSim = { stagedSimId = it },
                         onContinueToRecipients = { title, tplId, body, appendSig, isPromo, channel, interval, simId ->
                             stagedTitle = title
@@ -428,7 +491,7 @@ fun ApnaSandeshAppShell(
                             stagedIsPromo = isPromo
                             stagedChannel = channel
                             stagedIntervalSeconds = interval
-                            stagedSimId = simId
+                            stagedSimId = simId ?: activeSims.firstOrNull()?.subscriptionId
                             currentNav = NavDestination.CAMPAIGN_RECIPIENTS
                         }
                     )
@@ -468,15 +531,35 @@ fun ApnaSandeshAppShell(
                     onConfirmAndStartSending = { scheduledMillis ->
                         val activeId = campaignsViewModel.activeCampaignId.value
                         if (activeId != null) {
-                            if (scheduledMillis != null) {
-                                campaignsViewModel.scheduleCampaignWork(activeId, scheduledMillis)
-                                currentNav = NavDestination.CAMPAIGNS
-                            } else {
-                                if (stagedChannel == "COMPOSER_HANDOFF") {
-                                    currentNav = NavDestination.COMPOSER_HANDOFF
+                            if (stagedChannel == "COMPOSER_HANDOFF") {
+                                if (scheduledMillis != null) {
+                                    campaignsViewModel.scheduleCampaignWork(activeId, scheduledMillis)
+                                    currentNav = NavDestination.CAMPAIGNS
                                 } else {
-                                    campaignsViewModel.startSendingSession(activeId, stagedIntervalSeconds)
-                                    currentNav = NavDestination.CAMPAIGN_SENDING
+                                    currentNav = NavDestination.COMPOSER_HANDOFF
+                                }
+                            } else {
+                                // DIRECT_SIM
+                                val hasSendSms = ContextCompat.checkSelfPermission(
+                                    context, Manifest.permission.SEND_SMS
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (!hasSendSms) {
+                                    pendingCampaignStartId = activeId
+                                    pendingScheduledMillis = scheduledMillis
+                                    directSimPermissionLauncher.launch(
+                                        arrayOf(
+                                            Manifest.permission.SEND_SMS,
+                                            Manifest.permission.READ_PHONE_STATE
+                                        )
+                                    )
+                                } else {
+                                    if (scheduledMillis != null) {
+                                        campaignsViewModel.scheduleCampaignWork(activeId, scheduledMillis)
+                                        currentNav = NavDestination.CAMPAIGNS
+                                    } else {
+                                        campaignsViewModel.startSendingSession(activeId, stagedIntervalSeconds)
+                                        currentNav = NavDestination.CAMPAIGN_SENDING
+                                    }
                                 }
                             }
                         }
@@ -542,7 +625,13 @@ fun ApnaSandeshAppShell(
                 NavDestination.HISTORY -> CampaignHistoryScreen(
                     onNavigateToSending = { id ->
                         campaignsViewModel.selectCampaign(id)
-                        currentNav = NavDestination.CAMPAIGN_SENDING
+                        val engineState = campaignsViewModel.engineState.value
+                        val transport = engineState?.transportType ?: stagedChannel
+                        if (transport == "COMPOSER_HANDOFF") {
+                            currentNav = NavDestination.COMPOSER_HANDOFF
+                        } else {
+                            currentNav = NavDestination.CAMPAIGN_SENDING
+                        }
                     }
                 )
                 NavDestination.SETTINGS -> SettingsScreen(

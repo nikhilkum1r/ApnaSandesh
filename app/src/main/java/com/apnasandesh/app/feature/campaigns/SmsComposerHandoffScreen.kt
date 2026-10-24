@@ -12,7 +12,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -273,65 +275,127 @@ fun SmsComposerHandoffScreen(
                             }
                         }
 
-                        // Primary Action: Open SMS App
-                        Button(
-                            onClick = {
-                                val sendIntent = Intent(Intent.ACTION_SENDTO).apply {
-                                    data = Uri.parse("smsto:${currentRecipient.normalizedPhoneSnapshot}")
+                        // Helper to launch Android native SMS intent
+                        val launchSmsApp: () -> Unit = {
+                            val sendIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("smsto:${currentRecipient.normalizedPhoneSnapshot}")
+                                putExtra("sms_body", currentRecipient.resolvedMessageBody)
+                                putExtra(Intent.EXTRA_TEXT, currentRecipient.resolvedMessageBody)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            runCatching {
+                                context.startActivity(sendIntent)
+                            }.onFailure {
+                                val fallback = Intent(Intent.ACTION_VIEW).apply {
+                                    data = Uri.parse("sms:${currentRecipient.normalizedPhoneSnapshot}")
                                     putExtra("sms_body", currentRecipient.resolvedMessageBody)
-                                    putExtra(Intent.EXTRA_TEXT, currentRecipient.resolvedMessageBody)
                                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                 }
-                                runCatching {
-                                    context.startActivity(sendIntent)
-                                }.onFailure {
-                                    // Fallback to view intent
-                                    val fallback = Intent(Intent.ACTION_VIEW).apply {
-                                        data = Uri.parse("sms:${currentRecipient.normalizedPhoneSnapshot}")
-                                        putExtra("sms_body", currentRecipient.resolvedMessageBody)
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(fallback)
-                                }
+                                runCatching { context.startActivity(fallback) }
+                            }
+                        }
+
+                        val launchWhatsApp: () -> Unit = {
+                            val digitsOnly = currentRecipient.normalizedPhoneSnapshot.filter { it.isDigit() }
+                            val encoded = Uri.encode(currentRecipient.resolvedMessageBody)
+                            val waIntent = Intent(Intent.ACTION_VIEW).apply {
+                                data = Uri.parse("https://api.whatsapp.com/send?phone=$digitsOnly&text=$encoded")
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            runCatching {
+                                context.startActivity(waIntent)
+                            }.onFailure {
+                                android.widget.Toast.makeText(context, "WhatsApp is not installed on this device", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+
+                        // Primary Action: 1-Tap Send via SMS App & Advance to Next
+                        Button(
+                            onClick = {
+                                launchSmsApp()
+                                onMarkSent(currentRecipient)
                             },
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Open in SMS App", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = "Send SMS via App & Next",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
                         }
 
-                        // Confirmation Buttons
+                        // WhatsApp Action: 1-Tap Send via WhatsApp & Advance to Next
+                        Button(
+                            onClick = {
+                                launchWhatsApp()
+                                onMarkSent(currentRecipient)
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = StatusSuccess,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Send via WhatsApp & Next",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+
+                        // Secondary actions: Open App Only, Mark Sent, Skip
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
+                            OutlinedButton(
+                                onClick = { launchSmsApp() },
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Open Only", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            }
+
                             Button(
                                 onClick = { onMarkSent(currentRecipient) },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = StatusSuccess, contentColor = Color.White),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(44.dp)
                             ) {
-                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Mark as Sent", fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Mark Sent", fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
                             OutlinedButton(
                                 onClick = { onSkipRecipient(currentRecipient) },
                                 shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp)
+                                    .weight(0.9f)
+                                    .height(44.dp)
                             ) {
-                                Icon(Icons.Default.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Skip", fontWeight = FontWeight.SemiBold)
+                                Icon(Icons.Default.SkipNext, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Skip", fontWeight = FontWeight.SemiBold, maxLines = 1)
                             }
                         }
                     }
@@ -363,7 +427,18 @@ fun SmsComposerHandoffScreen(
                                     Text(nextRecip.recipientNameSnapshot, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
                                     Text(nextRecip.normalizedPhoneSnapshot, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Text("Waiting", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Queued",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
                         }
                     }

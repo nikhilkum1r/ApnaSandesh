@@ -84,6 +84,9 @@ class CustomersViewModel @Inject constructor(
         notes: String,
         consentStatus: String,
         consentSource: String,
+        lastOrderAmount: String = "",
+        lastOrderId: String = "",
+        lastAppointmentDate: String = "",
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
@@ -96,7 +99,10 @@ class CustomersViewModel @Inject constructor(
                 tagsCsv = tags,
                 notes = notes,
                 consentStatus = consentStatus,
-                consentSource = consentSource
+                consentSource = consentSource,
+                lastOrderAmount = lastOrderAmount,
+                lastOrderId = lastOrderId,
+                lastAppointmentDate = lastAppointmentDate
             )
             res.fold(
                 onSuccess = {
@@ -117,6 +123,9 @@ class CustomersViewModel @Inject constructor(
         tags: String,
         notes: String,
         consentStatus: String,
+        lastOrderAmount: String = customer.lastOrderAmount,
+        lastOrderId: String = customer.lastOrderId,
+        lastAppointmentDate: String = customer.lastAppointmentDate,
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
@@ -129,7 +138,10 @@ class CustomersViewModel @Inject constructor(
                 tagsCsv = tags,
                 notes = notes,
                 consentStatus = consentStatus,
-                consentSource = customer.consentSource
+                consentSource = customer.consentSource,
+                lastOrderAmount = lastOrderAmount,
+                lastOrderId = lastOrderId,
+                lastAppointmentDate = lastAppointmentDate
             )
             res.fold(
                 onSuccess = {

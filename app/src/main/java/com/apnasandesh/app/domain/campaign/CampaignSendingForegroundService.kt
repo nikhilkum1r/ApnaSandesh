@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.apnasandesh.app.MainActivity
 import com.apnasandesh.app.R
@@ -29,6 +30,7 @@ class CampaignSendingForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var stateObserverJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     companion object {
         const val CHANNEL_ID = "apnasandesh_campaign_sending"
@@ -64,6 +66,8 @@ class CampaignSendingForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ApnaSandesh:CampaignSendingWakeLock")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -72,6 +76,12 @@ class CampaignSendingForegroundService : Service() {
                 val campaignId = intent.getStringExtra(EXTRA_CAMPAIGN_ID)
                 val interval = intent.getIntExtra(EXTRA_INTERVAL_SECONDS, 3)
                 if (campaignId != null) {
+                    try {
+                        if (wakeLock?.isHeld == false) {
+                            wakeLock?.acquire(45 * 60 * 1000L) // 45 min safety timeout
+                        }
+                    } catch (_: Exception) {}
+
                     val initialNotification = buildNotification("Preparing campaign...", 0, 0)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                         startForeground(
@@ -107,6 +117,11 @@ class CampaignSendingForegroundService : Service() {
                     campaignEngine.stopCampaign(state.campaignId)
                 }
                 stateObserverJob?.cancel()
+                try {
+                    if (wakeLock?.isHeld == true) {
+                        wakeLock?.release()
+                    }
+                } catch (_: Exception) {}
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -143,6 +158,12 @@ class CampaignSendingForegroundService : Service() {
                         .setContentIntent(createOpenAppIntent())
                         .build()
                     nm?.notify(NOTIFICATION_ID + 1, completionNotification)
+
+                    try {
+                        if (wakeLock?.isHeld == true) {
+                            wakeLock?.release()
+                        }
+                    } catch (_: Exception) {}
 
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
@@ -202,6 +223,16 @@ class CampaignSendingForegroundService : Service() {
             }
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stateObserverJob?.cancel()
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

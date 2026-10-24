@@ -27,29 +27,41 @@ class DirectSimSmsTransport @Inject constructor(
     ): TransportSubmissionOutcome {
         if (!policyGate.hasDirectSmsRuntimePermissions()) {
             return TransportSubmissionOutcome.BlockedByPolicyOrPermission(
-                "SEND_SMS and READ_PHONE_STATE permissions have not been granted."
+                "SEND_SMS permission has not been granted."
             )
         }
 
         val activeSubs = policyGate.getActiveSimSubscriptions()
-        if (activeSubs.isEmpty()) {
-            return TransportSubmissionOutcome.FailedImmediately("No active SIM card detected in device.")
+        val defaultSubId = policyGate.getDefaultSubscriptionId()
+
+        val resolvedSubId = when {
+            explicitSubscriptionId != null && activeSubs.any { it.subscriptionId == explicitSubscriptionId } -> explicitSubscriptionId
+            explicitSubscriptionId != null && explicitSubscriptionId != android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID -> explicitSubscriptionId
+            activeSubs.isNotEmpty() -> activeSubs.first().subscriptionId
+            defaultSubId != null -> defaultSubId
+            else -> null
         }
 
-        val resolvedSubId = explicitSubscriptionId ?: activeSubs.first().subscriptionId
-        if (activeSubs.none { it.subscriptionId == resolvedSubId }) {
-            return TransportSubmissionOutcome.FailedImmediately(
-                "INVALID_SUBSCRIPTION_ID: Selected SIM subscription ID ($resolvedSubId) is no longer active. Will not silently switch SIMs."
-            )
-        }
+        val cleanDestination = destinationPhoneE164.trim().replace("[^0-9+]".toRegex(), "")
 
         return runCatching {
-            val smsManager: SmsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                context.getSystemService(SmsManager::class.java)
-                    .createForSubscriptionId(resolvedSubId)
+            val subIdToUse = resolvedSubId?.takeIf { it != android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID }
+            val smsManager: SmsManager = if (subIdToUse != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    context.getSystemService(SmsManager::class.java)?.createForSubscriptionId(subIdToUse)
+                        ?: @Suppress("DEPRECATION") SmsManager.getSmsManagerForSubscriptionId(subIdToUse)
+                } else {
+                    @Suppress("DEPRECATION")
+                    SmsManager.getSmsManagerForSubscriptionId(subIdToUse)
+                }
             } else {
-                @Suppress("DEPRECATION")
-                SmsManager.getSmsManagerForSubscriptionId(resolvedSubId)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    context.getSystemService(SmsManager::class.java)
+                        ?: @Suppress("DEPRECATION") SmsManager.getDefault()
+                } else {
+                    @Suppress("DEPRECATION")
+                    SmsManager.getDefault()
+                }
             }
 
             val parts = smsManager.divideMessage(messageBody)
@@ -57,16 +69,16 @@ class DirectSimSmsTransport @Inject constructor(
             val deliveryIntents = ArrayList<PendingIntent>(parts.size)
 
             parts.forEachIndexed { partIndex, _ ->
-                val requestCode = (recipientRowId.hashCode() xor partIndex)
+                val requestCode = kotlin.math.abs(recipientRowId.hashCode() xor (partIndex shl 8))
                 val sentIntent = Intent(context, SmsStatusBroadcastReceiver::class.java).apply {
                     action = SmsStatusBroadcastReceiver.ACTION_SMS_SENT
                     putExtra(SmsStatusBroadcastReceiver.EXTRA_RECIPIENT_ROW_ID, recipientRowId)
-                    putExtra(SmsStatusBroadcastReceiver.EXTRA_SUBSCRIPTION_ID, resolvedSubId)
+                    putExtra(SmsStatusBroadcastReceiver.EXTRA_SUBSCRIPTION_ID, subIdToUse)
                 }
                 val deliveredIntent = Intent(context, SmsStatusBroadcastReceiver::class.java).apply {
                     action = SmsStatusBroadcastReceiver.ACTION_SMS_DELIVERED
                     putExtra(SmsStatusBroadcastReceiver.EXTRA_RECIPIENT_ROW_ID, recipientRowId)
-                    putExtra(SmsStatusBroadcastReceiver.EXTRA_SUBSCRIPTION_ID, resolvedSubId)
+                    putExtra(SmsStatusBroadcastReceiver.EXTRA_SUBSCRIPTION_ID, subIdToUse)
                 }
 
                 sentIntents.add(
@@ -89,7 +101,7 @@ class DirectSimSmsTransport @Inject constructor(
 
             if (parts.size == 1) {
                 smsManager.sendTextMessage(
-                    destinationPhoneE164,
+                    cleanDestination,
                     null,
                     messageBody,
                     sentIntents.first(),
@@ -97,7 +109,7 @@ class DirectSimSmsTransport @Inject constructor(
                 )
             } else {
                 smsManager.sendMultipartTextMessage(
-                    destinationPhoneE164,
+                    cleanDestination,
                     null,
                     parts,
                     sentIntents,

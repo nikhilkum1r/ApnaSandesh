@@ -39,8 +39,10 @@ Unlike conventional SaaS CRM platforms that force you to upload sensitive client
 
 ApnaSandesh requests only strictly necessary Android runtime permissions to perform user-initiated business messaging tasks. In compliance with the **Google Play Developer Policy** and **Google Play Sensitive Permissions Policy**, here is the transparent breakdown of each permission:
 
-### A. `SEND_SMS` (SMS Permissions Policy)
-* **Status:** Optional (Runtime Permission).
+> **Important Note for Google Play Users:** The Google Play release of ApnaSandesh (v1.0.2+) exclusively operates via the **zero-permission Android SMS Composer Mode (`Intent.ACTION_SENDTO`)**. `SEND_SMS`, `READ_PHONE_STATE`, and `FOREGROUND_SERVICE_SPECIAL_USE` are completely omitted from the Google Play manifest. Only `READ_CONTACTS` (optional customer import) and `POST_NOTIFICATIONS` (local alerts) are declared.
+
+### A. `SEND_SMS` (Direct APK Edition Only)
+* **Status:** Optional (Declared only in the direct website APK release; omitted in Google Play release).
 * **Core Functionality Purpose:** Enables "Direct SIM Sending" mode. When explicitly activated by the user in settings, the application utilizes the device's cellular hardware (`SmsManager`) to dispatch personalized business messages sequentially through the user's mobile SIM card.
 * **Strict Limitations:**
   * Messages are dispatched **only** when explicitly commanded by the user for a designated campaign or client alert.

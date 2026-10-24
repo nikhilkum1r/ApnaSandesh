@@ -20,6 +20,8 @@ data class BusinessProfileEntity(
     val currencySymbol: String = "₹",
     val preferredLanguage: String = "English",
     val brandTone: String = "Professional",
+    val upiId: String = "",
+    val googleReviewLink: String = "",
     val updatedAtEpochMillis: Long = System.currentTimeMillis()
 )
 
@@ -142,7 +144,7 @@ data class CampaignEntity(
     val name: String,
     val templateId: String? = null,
     val rawMessageTemplate: String,
-    val transportType: String = "COMPOSER_HANDOFF",
+    val transportType: String = "DIRECT_SIM",
     val selectedSubscriptionId: Int? = null,
     val status: String = "DRAFT",
     val totalRecipients: Int = 0,
@@ -267,9 +269,9 @@ data class SuppressionEntryEntity(
 data class AppSettingsEntity(
     @PrimaryKey val id: String = "app_settings",
     val onboardingCompleted: Boolean = false,
-    val preferredTransport: String = "COMPOSER_HANDOFF",
-    val directSimPolicyAcknowledged: Boolean = false,
-    val directSimFeatureEnabled: Boolean = false,
+    val preferredTransport: String = "DIRECT_SIM",
+    val directSimPolicyAcknowledged: Boolean = true,
+    val directSimFeatureEnabled: Boolean = true,
     val selectedSimSubscriptionId: Int? = null,
     val indiaTraiComplianceMode: Boolean = true,
     val appendSignatureByDefault: Boolean = true,

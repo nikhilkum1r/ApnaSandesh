@@ -144,7 +144,7 @@ fun StatusBadge(
         "AWAITING_CONFIRMATION", "QUEUED", "DRAFT", "VALIDATED" -> Triple(
             if (isDark) BrandBluePrimaryContainerDark.copy(alpha = 0.4f) else BrandBluePrimaryContainerLight.copy(alpha = 0.6f),
             if (isDark) BrandBluePrimaryDark else BrandBluePrimaryLight,
-            status.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+            if (status == "AWAITING_CONFIRMATION" || status == "QUEUED") "Queued" else status.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
         )
         "COMPLETED" -> Triple(
             if (isDark) StatusSuccessContainerDark else StatusSuccessContainer,

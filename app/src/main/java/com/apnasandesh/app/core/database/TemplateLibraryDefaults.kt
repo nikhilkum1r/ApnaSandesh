@@ -294,6 +294,19 @@ object TemplateLibraryDefaults {
             industry = "General Business"
         ),
         MessageTemplateEntity(
+            id = "tpl_payment_upi_link",
+            title = "1-Tap UPI Payment Reminder",
+            category = TemplateCategory.ORDERS_PAYMENTS.name,
+            bodyTemplate = "Dear {{first_name}}, reminder for pending balance of {{invoice_amount}} for bill #{{order_id}} at {{business_name}}. Tap to pay instantly via UPI (GPay/PhonePe/Paytm): {{upi_pay_link}}",
+            description = "Clickable 1-tap UPI payment reminder link for Indian businesses",
+            language = TemplateLanguage.ENGLISH.displayName,
+            tone = TemplateTone.CONCISE.displayName,
+            isPromotional = false,
+            isSystemDefault = true,
+            isFavorite = true,
+            industry = "General Business"
+        ),
+        MessageTemplateEntity(
             id = "tpl_payment_confirmation",
             title = "Payment Received Confirmation",
             category = TemplateCategory.ORDERS_PAYMENTS.name,
@@ -392,11 +405,11 @@ object TemplateLibraryDefaults {
             id = "tpl_retention_review",
             title = "Google / Map Review Request",
             category = TemplateCategory.CUSTOMER_RETENTION.name,
-            bodyTemplate = "Hi {{first_name}}, thank you for choosing {{business_name}}! If you loved our service, would you take 30 seconds to leave us a 5-star review? We appreciate your support!",
-            description = "Drive authentic Google Maps and online ratings",
+            bodyTemplate = "Hi {{first_name}}, thank you for visiting {{business_name}}! If you enjoyed our service, please tap here to leave us a 5-star Google review: {{google_review_link}} We appreciate your support!",
+            description = "Drive authentic Google Maps 5-star ratings with direct link",
             language = TemplateLanguage.ENGLISH.displayName,
             tone = TemplateTone.FRIENDLY.displayName,
-            isPromotional = true,
+            isPromotional = false,
             isSystemDefault = true,
             isFavorite = true,
             industry = "Local Services"

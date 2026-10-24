@@ -18,7 +18,7 @@ import androidx.room.TypeConverters
         SuppressionEntryEntity::class,
         AppSettingsEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)

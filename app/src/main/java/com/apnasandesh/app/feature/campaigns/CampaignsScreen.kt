@@ -19,8 +19,15 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import android.content.pm.PackageManager
+import android.os.Build
+import android.Manifest
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +64,7 @@ fun CampaignEditorScreen(
     templateRenderer: TemplateRenderer,
     activeSims: List<SimSubscriptionInfo> = emptyList(),
     selectedSimSubscriptionId: Int? = null,
+    initialTransportMode: String = "DIRECT_SIM",
     onSelectSim: ((Int?) -> Unit)? = null,
     onContinueToRecipients: (
         title: String,
@@ -69,35 +77,59 @@ fun CampaignEditorScreen(
         simSubscriptionId: Int?
     ) -> Unit
 ) {
-    var campaignTitle by remember { mutableStateOf("Customer Service Broadcast") }
-    var selectedTemplate by remember { mutableStateOf<MessageTemplateEntity?>(templates.firstOrNull()) }
-    var messageBody by remember {
-        mutableStateOf(
-            templates.firstOrNull()?.bodyTemplate
-                ?: "Hello {{first_name}}, thank you for choosing {{business_name}}! Contact us at {{business_phone}} for details."
-        )
-    }
+    var campaignTitle by remember { mutableStateOf("") }
+    var selectedTemplate by remember { mutableStateOf<MessageTemplateEntity?>(null) }
+    var messageBody by remember { mutableStateOf("") }
     var appendSignature by remember { mutableStateOf(true) }
     var isPromotional by remember { mutableStateOf(false) }
 
-    // Channel Selection: DIRECT_SIM, COMPOSER_HANDOFF
-    var selectedChannel by remember { mutableStateOf("DIRECT_SIM") }
+    // Channel Selection: DIRECT_SIM (Default for Direct SIM build), COMPOSER_HANDOFF
+    var selectedChannel by remember { mutableStateOf(initialTransportMode) }
     // Sending interval in seconds (for sequential auto send)
     var sendingIntervalSeconds by remember { mutableIntStateOf(3) }
     var resolvedSimId by remember { mutableStateOf(selectedSimSubscriptionId ?: activeSims.firstOrNull()?.subscriptionId) }
 
+    LaunchedEffect(activeSims, selectedSimSubscriptionId) {
+        if (resolvedSimId == null && activeSims.isNotEmpty()) {
+            val subId = selectedSimSubscriptionId ?: activeSims.first().subscriptionId
+            resolvedSimId = subId
+            onSelectSim?.invoke(subId)
+        }
+    }
+
+    val context = LocalContext.current
+    val isDirectSimDeclared = remember {
+        runCatching {
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    context.packageName,
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+            }
+            packageInfo.requestedPermissions?.contains(Manifest.permission.SEND_SMS) == true
+        }.getOrDefault(false)
+    }
+    val directSimPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        onSelectSim?.invoke(resolvedSimId)
+    }
+
     val sampleCustomer = remember {
         CustomerEntity(
-            fullName = "Aarav Sharma",
-            rawPhoneNumber = "9876543210",
-            normalizedPhoneE164 = "+919876543210"
+            fullName = "Customer Name",
+            rawPhoneNumber = "",
+            normalizedPhoneE164 = ""
         )
     }
     val safeProfile = profile ?: BusinessProfileEntity(
-        businessName = "My Local Shop",
-        ownerDisplayName = "Shop Owner",
+        businessName = "Your Business",
+        ownerDisplayName = "Your Name",
         businessCategory = "Retail",
-        communicationPhone = "+919876500000"
+        communicationPhone = ""
     )
 
     val livePreview = remember(messageBody, safeProfile, appendSignature, isPromotional) {
@@ -170,24 +202,33 @@ fun CampaignEditorScreen(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Direct SIM (Automatic)
+                    // Direct SIM (Automatic sequential dispatch)
                     ChannelChoiceCard(
                         title = "SMS (Direct SIM)",
                         subtitle = "Automatic sequential sending",
                         icon = Icons.Default.SimCard,
                         isSelected = selectedChannel == "DIRECT_SIM",
-                        onClick = { selectedChannel = "DIRECT_SIM" },
-                        modifier = Modifier.width(140.dp)
+                        onClick = {
+                            selectedChannel = "DIRECT_SIM"
+                            val hasSend = ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+                            val hasPhone = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+                            if (!hasSend || !hasPhone) {
+                                directSimPermissionLauncher.launch(
+                                    arrayOf(Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE)
+                                )
+                            }
+                        },
+                        modifier = Modifier.width(160.dp)
                     )
 
-                    // Default SMS App
+                    // Default SMS App (Play Store Compliant & Handoff)
                     ChannelChoiceCard(
                         title = "SMS (Default App)",
-                        subtitle = "Manual composer handoff",
+                        subtitle = "Native composer handoff",
                         icon = Icons.Default.PhoneAndroid,
                         isSelected = selectedChannel == "COMPOSER_HANDOFF",
                         onClick = { selectedChannel = "COMPOSER_HANDOFF" },
-                        modifier = Modifier.width(140.dp)
+                        modifier = Modifier.width(160.dp)
                     )
                 }
             }
@@ -239,6 +280,48 @@ fun CampaignEditorScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    val hasSendSms = ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+                    val hasPhoneState = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+
+                    if (!hasSendSms) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "SMS Permission Required",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = "Direct SIM requires SEND_SMS permission to dispatch messages automatically.",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                                Button(
+                                    onClick = {
+                                        directSimPermissionLauncher.launch(
+                                            arrayOf(Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE)
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Grant", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+
                     // Dual SIM selection
                     if (activeSims.isNotEmpty()) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -271,6 +354,24 @@ fun CampaignEditorScreen(
                                 )
                             }
                         }
+                    } else if (!hasPhoneState) {
+                        OutlinedButton(
+                            onClick = {
+                                directSimPermissionLauncher.launch(arrayOf(Manifest.permission.READ_PHONE_STATE))
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.SimCard, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Detect Installed Dual SIM Slots", style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        Text(
+                            text = "Using default cellular SIM connection for dispatch.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -403,7 +504,7 @@ fun CampaignEditorScreen(
             encoding = if (metrics.isUcs2Unicode) "UCS-2 (Unicode)" else "GSM-7",
             charCount = metrics.charCount,
             segmentCount = metrics.segmentCount,
-            recipientName = "Aarav Sharma"
+            recipientName = "Customer"
         )
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -934,10 +1035,10 @@ fun CampaignReviewScreen(
     val safeCalculator = remember(segmentCalculator) { segmentCalculator ?: SmsSegmentCalculator() }
 
     val safeProfile = profile ?: BusinessProfileEntity(
-        businessName = "My Local Shop",
-        ownerDisplayName = "Shop Owner",
+        businessName = "Your Business",
+        ownerDisplayName = "Your Name",
         businessCategory = "Retail",
-        communicationPhone = "+919876500000"
+        communicationPhone = ""
     )
 
     val advisory = remember(recipients.size, isPromotional, safeProfile.defaultCountryCallingCode) {
@@ -1349,6 +1450,17 @@ fun CampaignSendingScreen(
     var showStopDialog by remember { mutableStateOf(false) }
     var editingRecipient by remember { mutableStateOf<CampaignRecipientEntity?>(null) }
     val safeCalculator = remember(segmentCalculator) { segmentCalculator ?: SmsSegmentCalculator() }
+    val sendingContext = LocalContext.current
+    val sendingPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val sendGranted = grants[Manifest.permission.SEND_SMS] == true ||
+            ContextCompat.checkSelfPermission(sendingContext, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+        if (sendGranted) {
+            onDismissStatus()
+            onResumeCampaign()
+        }
+    }
 
     // Live counts from engineState if available, fallback to recipients list
     val totalCount = engineState?.totalRecipients?.takeIf { it > 0 } ?: recipients.size
@@ -1537,19 +1649,46 @@ fun CampaignSendingScreen(
 
             // Status Feedback Alert Banner
             statusMessage?.let { msg ->
+                val isPermissionIssue = msg.contains("permission", ignoreCase = true) || msg.contains("SEND_SMS", ignoreCase = true)
                 Card(
                     shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isPermissionIssue) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                        Icon(
+                            imageVector = if (isPermissionIssue) Icons.Default.Warning else Icons.Default.Info,
+                            contentDescription = null,
+                            tint = if (isPermissionIssue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(20.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(msg, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = onDismissStatus) { Text("OK") }
+                        Text(
+                            text = msg,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isPermissionIssue) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        if (isPermissionIssue) {
+                            Button(
+                                onClick = {
+                                    sendingPermissionLauncher.launch(
+                                        arrayOf(Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE)
+                                    )
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text("Grant & Resume", style = MaterialTheme.typography.labelSmall)
+                            }
+                        } else {
+                            TextButton(onClick = onDismissStatus) { Text("OK") }
+                        }
                     }
                 }
             }
@@ -1681,26 +1820,42 @@ fun CampaignSendingScreen(
                             )
 
                             Button(
-                                onClick = { onDispatchRecipient(currentRecipient) },
+                                onClick = {
+                                    onDispatchRecipient(currentRecipient)
+                                    onMarkSent(currentRecipient)
+                                },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(46.dp)
+                                    .height(48.dp)
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Open in SMS App",
+                                    text = "Send via SMS App & Next",
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1
                                 )
                             }
 
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                OutlinedButton(
+                                    onClick = { onDispatchRecipient(currentRecipient) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(42.dp)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Open Only", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                }
+
                                 Button(
                                     onClick = { onMarkSent(currentRecipient) },
                                     shape = RoundedCornerShape(10.dp),
@@ -1711,11 +1866,11 @@ fun CampaignSendingScreen(
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp)
+                                        .height(42.dp)
                                 ) {
-                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Mark as Sent", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Mark Sent", fontWeight = FontWeight.Bold, maxLines = 1)
                                 }
 
                                 OutlinedButton(
@@ -1723,11 +1878,11 @@ fun CampaignSendingScreen(
                                     shape = RoundedCornerShape(10.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp)
+                                        .weight(0.9f)
+                                        .height(42.dp)
                                 ) {
-                                    Icon(Icons.Default.SkipNext, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(Icons.Default.SkipNext, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text("Skip", fontWeight = FontWeight.SemiBold, maxLines = 1)
                                 }
                             }

@@ -129,7 +129,7 @@ class CustomerRepository @Inject constructor(
         }
 
     suspend fun deleteCustomer(customerId: String) = withContext(dispatchers.io) {
-        customerDao.deleteCustomerById(customerId)
+        customerDao.deleteCustomerWithRelations(customerId)
     }
 
     suspend fun createGroup(name: String, description: String) = withContext(dispatchers.io) {

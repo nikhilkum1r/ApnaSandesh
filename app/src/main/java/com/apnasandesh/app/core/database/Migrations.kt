@@ -49,5 +49,13 @@ object DatabaseMigrations {
             db.execSQL("ALTER TABLE `campaigns` ADD COLUMN `scheduledAtMillis` INTEGER DEFAULT NULL")
         }
     }
+
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `business_profiles` ADD COLUMN `upiId` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `business_profiles` ADD COLUMN `googleReviewLink` TEXT NOT NULL DEFAULT ''")
+        }
+    }
 }
+
 

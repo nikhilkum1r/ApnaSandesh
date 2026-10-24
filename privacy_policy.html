@@ -410,6 +410,9 @@
 
         <!-- Section 2 -->
         <h2 id="permissions">2. Android Operating System Permissions Specification</h2>
+        <div class="note-box" style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; padding: 12px 16px; margin-bottom: 20px; border-radius: 6px;">
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.5; color: #d1fae5;"><strong>Google Play Compliant Release (v1.0.2+):</strong> To strictly comply with Google Play's SMS and Call Log policy, the Google Play version of ApnaSandesh operates exclusively via the <strong>zero-permission Android SMS Composer Mode (<code>Intent.ACTION_SENDTO</code>)</strong>. <code>SEND_SMS</code>, <code>READ_PHONE_STATE</code>, and <code>FOREGROUND_SERVICE_SPECIAL_USE</code> are omitted from the Play Store manifest. Only <code>READ_CONTACTS</code> (optional customer import) and <code>POST_NOTIFICATIONS</code> (local alerts) are declared.</p>
+        </div>
         <p>In strict accordance with the Google Play Sensitive Permissions Policy, every runtime permission requested by ApnaSandesh is documented below with its exact purpose and zero-permission fallback:</p>
 
         <!-- Permission: SEND_SMS -->
